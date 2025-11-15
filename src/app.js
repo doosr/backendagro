@@ -60,4 +60,15 @@ app.use((err, req, res, next) => {
   });
 });
 
+app.get('/api/debug', (req, res) => {
+  res.json({
+    mongoUriExists: !!process.env.MONGO_URI,
+    mongoUriPrefix: process.env.MONGO_URI?.substring(0, 20) + '...', // Show first 20 chars only
+    nodeEnv: process.env.NODE_ENV,
+    allEnvVars: Object.keys(process.env).filter(key => 
+      key.includes('MONGO') || key.includes('JWT')
+    )
+  });
+});
+
 module.exports = app;
