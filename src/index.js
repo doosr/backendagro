@@ -22,7 +22,7 @@ const server = http.createServer(app);
 // Configuration Socket.IO
 const io = socketio(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'https://frontend-agro-six.vercel.app',
     methods: ['GET', 'POST'],
     credentials: true
   }

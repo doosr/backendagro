@@ -135,8 +135,8 @@ exports.getLatestData = async (req, res) => {
   }
 };
 
-// @route   GET /api/sensor/stats
-// @desc    Obtenir statistiques
+//    GET /api/sensor/stats
+//     Obtenir statistiques
 exports.getStats = async (req, res) => {
   try {
     const { period = '24h' } = req.query;

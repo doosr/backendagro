@@ -169,8 +169,8 @@ async function analyzeImageWithAI(plantImage, io) {
   }
 }
 
-// @route   GET /api/image/list
-// @desc    Liste des images avec filtres
+//    GET /api/image/list
+//     Liste des images avec filtres
 exports.getImages = async (req, res) => {
   try {
     const { page = 1, limit = 20, type } = req.query;
@@ -204,8 +204,8 @@ exports.getImages = async (req, res) => {
   }
 };
 
-// @route   GET /api/image/:id
-// @desc    Détails d'une image
+//    GET /api/image/:id
+//     Détails d'une image
 exports.getImageById = async (req, res) => {
   try {
     const image = await PlantImage.findById(req.params.id)
@@ -230,8 +230,8 @@ exports.getImageById = async (req, res) => {
   }
 };
 
-// @route   DELETE /api/image/:id
-// @desc    Supprimer une image
+//    DELETE /api/image/:id
+//     Supprimer une image
 exports.deleteImage = async (req, res) => {
   try {
     const image = await PlantImage.findById(req.params.id);
@@ -268,4 +268,3 @@ exports.deleteImage = async (req, res) => {
   }
 };
 
-// ✅ Plus besoin de module.exports ici car on utilise exports.nomDeFonction
