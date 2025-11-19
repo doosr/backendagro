@@ -28,10 +28,11 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/sensor', require('./routes/sensorRoutes'));
-app.use('/api/image', require('./routes/imageRoutes'));
+//app.use('/api/image', require('./routes/imageRoutes'));
 app.use('/api/capteur', require('./routes/capteurRoutes'));
 app.use('/api/alert', require('./routes/alertRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
+app.use('/api/analysis', require('./routes/analysis')); // <-- AJOUTÉ
 
 // Route de test
 app.get('/api/health', (req, res) => {

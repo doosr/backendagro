@@ -216,9 +216,10 @@ exports.deleteCapteur = async (req, res) => {
 
 //    POST /api/capteur/auto-register
 //     Auto-enregistrement d'un capteur ESP32
+// ✅ CORRIGÉ: Retourne capteurId et userId en string
 exports.autoRegisterCapteur = async (req, res) => {
   try {
-    const { macAddress, type } = req.body;
+    const { macAddress, type, nom, localisation } = req.body;
 
     if (!macAddress) {
       return res.status(400).json({
@@ -231,30 +232,41 @@ exports.autoRegisterCapteur = async (req, res) => {
     let capteur = await Capteur.findOne({ macAddress });
     
     if (capteur) {
-      // Capteur existe déjà
+      // ✅ CORRECTION: Capteur existe - retourner les IDs en string
+      await capteur.populate('userId', 'nom email');
+      
+      console.log('✅ Capteur existant trouvé:', capteur.nom);
+      
       return res.json({
         success: true,
         message: 'Capteur déjà enregistré',
+        capteurId: capteur._id.toString(),  // ← Conversion en string
+        userId: capteur.userId._id.toString(),  // ← Conversion en string
         data: capteur,
         registered: true
       });
     }
 
-    // Trouver le premier agriculteur par défaut
-    const defaultUser = await User.findOne({ role: 'agriculteur' });
+    // Trouver le premier agriculteur OU admin par défaut
+    let defaultUser = await User.findOne({ role: 'agriculteur' });
+    
+    // Si aucun agriculteur, chercher un admin
+    if (!defaultUser) {
+      defaultUser = await User.findOne({ role: 'admin' });
+    }
     
     if (!defaultUser) {
       return res.status(404).json({
         success: false,
-        message: 'Aucun agriculteur trouvé pour l\'enregistrement automatique'
+        message: 'Aucun utilisateur trouvé pour l\'enregistrement automatique'
       });
     }
 
     // Créer un nouveau capteur
     capteur = await Capteur.create({
-      nom: `Capteur-${macAddress.slice(-4)}`,
+      nom: nom || `Capteur-${macAddress.slice(-5).replace(/:/g, '')}`,
       macAddress,
-      localisation: 'Non définie',
+      localisation: localisation || 'Non définie',
       userId: defaultUser._id,
       type: type || 'ESP32-CAM',
       actif: true
@@ -262,11 +274,14 @@ exports.autoRegisterCapteur = async (req, res) => {
 
     await capteur.populate('userId', 'nom email');
 
-    console.log('✅ Auto-enregistrement capteur:', capteur.nom);
+    console.log('✅ Auto-enregistrement capteur:', capteur.nom, 'pour', defaultUser.nom);
 
+    // ✅ CORRECTION: Retourner capteurId et userId en string
     res.status(201).json({
       success: true,
       message: 'Capteur auto-enregistré avec succès',
+      capteurId: capteur._id.toString(),  // ← Conversion en string
+      userId: capteur.userId._id.toString(),  // ← Conversion en string
       data: capteur,
       registered: false
     });
@@ -278,4 +293,3 @@ exports.autoRegisterCapteur = async (req, res) => {
     });
   }
 };
-

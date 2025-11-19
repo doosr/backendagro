@@ -19,6 +19,25 @@ exports.getUsers = async (req, res) => {
   }
 };
 
+// @route   GET /api/user
+// @desc    Liste des utilisateurs (Admin uniquement)
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await User.find().select('-password');
+
+    res.json({
+      success: true,
+      count: users.length,
+      data: users
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 // @route   PUT /api/user/settings
 // @desc    Mettre à jour les paramètres utilisateur
 exports.updateSettings = async (req, res) => {
