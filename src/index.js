@@ -3,11 +3,11 @@ const http = require('http');
 const socketio = require('socket.io');
 const app = require('./app');
 const connectDB = require('./config/database');
+const fs = require('fs');
 
 const PORT = process.env.PORT || 5000;
 
 // Créer le dossier uploads si inexistant
-const fs = require('fs');
 const uploadDir = './uploads/plant-images';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -22,7 +22,7 @@ const server = http.createServer(app);
 // Configuration Socket.IO
 const io = socketio(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'https://frontend-agro-six.vercel.app',
+    origin: process.env.FRONTEND_URL || '*',
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -49,7 +49,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Partager io avec l'app
+// Partager io avec l'app pour l’utiliser dans les routes
 app.io = io;
 
 // Démarrer le serveur

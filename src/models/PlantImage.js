@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+/*const mongoose = require('mongoose');
 
 const plantImageSchema = new mongoose.Schema({
   userId: {
@@ -34,4 +34,4 @@ const plantImageSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('PlantImage', plantImageSchema);
+module.exports = mongoose.model('PlantImage', plantImageSchema);*/

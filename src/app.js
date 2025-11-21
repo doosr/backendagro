@@ -4,7 +4,7 @@ const path = require('path');
 
 const app = express();
 
-// Middleware CORS - DOIT ÊTRE AVANT LES ROUTES
+// Middleware CORS
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -12,11 +12,11 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Body parser middleware
+// Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Logging middleware (pour debug)
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
@@ -28,13 +28,12 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/sensor', require('./routes/sensorRoutes'));
-//app.use('/api/image', require('./routes/imageRoutes'));
 app.use('/api/capteur', require('./routes/capteurRoutes'));
 app.use('/api/alert', require('./routes/alertRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
-app.use('/api/analysis', require('./routes/analysis')); // <-- AJOUTÉ
+app.use('/api/analysis', require('./routes/analysis'));
 
-// Route de test
+// Route test santé
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -51,7 +50,7 @@ app.use('*', (req, res) => {
   });
 });
 
-// Error handler global
+// Gestionnaire global des erreurs
 app.use((err, req, res, next) => {
   console.error('❌ Erreur:', err);
   res.status(err.statusCode || 500).json({
@@ -61,5 +60,8 @@ app.use((err, req, res, next) => {
   });
 });
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 01c4131 (ddee)
 module.exports = app;
