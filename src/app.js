@@ -25,7 +25,19 @@ app.use((req, res, next) => {
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Routes
+// ===== ROUTE HOME (très important pour Render) =====
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Bienvenue sur SmartPlant Backend 🌱',
+    status: 'running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+// ==================================================
+
+// Routes API
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/sensor', require('./routes/sensorRoutes'));
 app.use('/api/capteur', require('./routes/capteurRoutes'));
@@ -33,10 +45,10 @@ app.use('/api/alert', require('./routes/alertRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/analysis', require('./routes/analysis'));
 
-// Route test santé
+// Route health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'SmartPlant API is running',
     timestamp: new Date().toISOString()
   });
@@ -60,8 +72,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 01c4131 (ddee)
 module.exports = app;

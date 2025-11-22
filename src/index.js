@@ -7,19 +7,19 @@ const fs = require('fs');
 
 const PORT = process.env.PORT || 5000;
 
-// Créer le dossier uploads si inexistant
+// Create uploads folder if missing
 const uploadDir = './uploads/plant-images';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Connexion à MongoDB
+// Connect to MongoDB
 connectDB();
 
-// Créer le serveur HTTP
+// Create HTTP server
 const server = http.createServer(app);
 
-// Configuration Socket.IO
+// Socket.IO configuration
 const io = socketio(server, {
   cors: {
     origin: process.env.FRONTEND_URL || '*',
@@ -32,13 +32,11 @@ const io = socketio(server, {
 io.on('connection', (socket) => {
   console.log('📡 Nouveau client connecté:', socket.id);
 
-  // Rejoindre une room basée sur userId
   socket.on('join', (userId) => {
     socket.join(userId);
     console.log(`👤 User ${userId} a rejoint sa room`);
   });
 
-  // ESP32 rejoint une room spéciale
   socket.on('esp32-connect', () => {
     socket.join('esp32');
     console.log('🤖 ESP32 connecté');
@@ -49,21 +47,21 @@ io.on('connection', (socket) => {
   });
 });
 
-// Partager io avec l'app pour l’utiliser dans les routes
+// Expose io to app routes
 app.io = io;
 
-// Démarrer le serveur
+// Start server
 server.listen(PORT, () => {
   console.log(`
   ╔═══════════════════════════════════════╗
   ║   🌱 SmartPlant Backend Started 🌱    ║
   ║   Port: ${PORT}                        ║
-  ║   Environment: ${process.env.NODE_ENV || 'development'}           ║
+  ║   Environment: ${process.env.NODE_ENV || 'development'}           
   ╚═══════════════════════════════════════╝
   `);
 });
 
-// Gestion des erreurs non gérées
+// Handle unhandled rejections
 process.on('unhandledRejection', (err) => {
   console.error('❌ Unhandled Rejection:', err);
   server.close(() => process.exit(1));
