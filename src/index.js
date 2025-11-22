@@ -7,36 +7,48 @@ const fs = require('fs');
 
 const PORT = process.env.PORT || 5000;
 
-// Create uploads folder if missing
+// ----------------------
+// CRÉER LE DOSSIER UPLOADS
+// ----------------------
 const uploadDir = './uploads/plant-images';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Connect to MongoDB
+// ----------------------
+// CONNEXION MONGODB
+// ----------------------
 connectDB();
 
-// Create HTTP server
+// ----------------------
+// CRÉER LE SERVEUR HTTP
+// ----------------------
 const server = http.createServer(app);
 
-// Socket.IO configuration
+// ----------------------
+// CONFIGURATION SOCKET.IO
+// ----------------------
 const io = socketio(server, {
   cors: {
     origin: process.env.FRONTEND_URL || '*',
     methods: ['GET', 'POST'],
-    credentials: true
-  }
+    credentials: true,
+  },
 });
 
-// Socket.IO events
+// ----------------------
+// SOCKET.IO EVENTS
+// ----------------------
 io.on('connection', (socket) => {
   console.log('📡 Nouveau client connecté:', socket.id);
 
+  // Rejoindre une room par userId
   socket.on('join', (userId) => {
     socket.join(userId);
     console.log(`👤 User ${userId} a rejoint sa room`);
   });
 
+  // ESP32 rejoint la room spéciale
   socket.on('esp32-connect', () => {
     socket.join('esp32');
     console.log('🤖 ESP32 connecté');
@@ -47,21 +59,27 @@ io.on('connection', (socket) => {
   });
 });
 
-// Expose io to app routes
-app.io = io;
+// ----------------------
+// PARTAGER IO DANS L’APP
+// ----------------------
+app.set('io', io);
 
-// Start server
+// ----------------------
+// LANCER LE SERVEUR
+// ----------------------
 server.listen(PORT, () => {
   console.log(`
   ╔═══════════════════════════════════════╗
   ║   🌱 SmartPlant Backend Started 🌱    ║
   ║   Port: ${PORT}                        ║
-  ║   Environment: ${process.env.NODE_ENV || 'development'}           
+  ║   Environment: ${process.env.NODE_ENV || 'development'} ║
   ╚═══════════════════════════════════════╝
   `);
 });
 
-// Handle unhandled rejections
+// ----------------------
+// GESTION DES ERREURS NON GÉRÉES
+// ----------------------
 process.on('unhandledRejection', (err) => {
   console.error('❌ Unhandled Rejection:', err);
   server.close(() => process.exit(1));

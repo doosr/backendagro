@@ -4,7 +4,11 @@ const path = require('path');
 
 const app = express();
 
-// Middleware CORS
+// ----------------------
+// MIDDLEWARES
+// ----------------------
+
+// CORS
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -16,7 +20,7 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Logging middleware
+// Logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
@@ -25,7 +29,21 @@ app.use((req, res, next) => {
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Routes
+// ----------------------
+// ROUTE RACINE
+// ----------------------
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Bienvenue sur SmartPlant Backend 🌱',
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ----------------------
+// ROUTES API
+// ----------------------
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/sensor', require('./routes/sensorRoutes'));
 app.use('/api/capteur', require('./routes/capteurRoutes'));
@@ -33,16 +51,18 @@ app.use('/api/alert', require('./routes/alertRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/analysis', require('./routes/analysis'));
 
-// Route test santé
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'SmartPlant API is running',
     timestamp: new Date().toISOString()
   });
 });
 
-// Route 404
+// ----------------------
+// 404 - Catch All
+// ----------------------
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
@@ -50,7 +70,9 @@ app.use('*', (req, res) => {
   });
 });
 
-// Gestionnaire global des erreurs
+// ----------------------
+// ERROR HANDLER GLOBAL
+// ----------------------
 app.use((err, req, res, next) => {
   console.error('❌ Erreur:', err);
   res.status(err.statusCode || 500).json({
