@@ -91,3 +91,35 @@ exports.updateSettings = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+// @route   PUT /api/user/profile
+// @desc    Mettre à jour les informations du profil utilisateur
+exports.updateProfile = async (req, res) => {
+  try {
+    const { nom, telephone } = req.body;
+
+    // Optionnel : validation
+    if (!nom || nom.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: "Le nom est requis"
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { nom, telephone },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.json({
+      success: true,
+      data: updatedUser,
+      message: 'Profil mis à jour avec succès'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

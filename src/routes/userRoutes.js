@@ -12,5 +12,6 @@ router.get('/', protect, authorize('admin'), getUsers);
 router.put('/settings', protect, updateSettings);
 router.post('/irrigation', protect, controlIrrigation);
 router.delete('/:id', protect, authorize('admin'), deleteUser);
+router.put('/profile', protect, userController.updateProfile);
 
 module.exports = router;
