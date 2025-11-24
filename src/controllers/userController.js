@@ -66,3 +66,28 @@ message: error.message
 });
 }
 };
+// @route   PUT /api/user/settings
+// @desc    Mettre à jour les paramètres utilisateur
+exports.updateSettings = async (req, res) => {
+  try {
+    const { seuilHumiditeSol, arrosageAutomatique, notificationsEnabled } = req.body;
+
+    // Optionnel : validation
+    if (seuilHumiditeSol < 0 || seuilHumiditeSol > 4095) {
+      return res.status(400).json({
+        success: false,
+        message: "Seuil d'humidité invalide"
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { seuilHumiditeSol, arrosageAutomatique, notificationsEnabled },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
