@@ -18,50 +18,6 @@ exports.getUsers = async (req, res) => {
     });
   }
 };
-
-// @route   GET /api/user
-// @desc    Liste des utilisateurs (Admin uniquement)
-exports.getUsers = async (req, res) => {
-  try {
-    const users = await User.find().select('-password');
-
-    res.json({
-      success: true,
-      count: users.length,
-      data: users
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-// @route   POST /api/user/irrigation
-// @desc    Contrôler l'arrosage manuel
-exports.controlIrrigation = async (req, res) => {
-  try {
-    const { action } = req.body; // 'ON' ou 'OFF'
-
-    if (!["ON", "OFF"].includes(action)) {
-      return res.status(400).json({
-        success: false,
-        message: "Action invalide"
-      });
-    }
-
-    if (req.app.io) {
-      req.app.io.to('esp32').emit('irrigationCommand', { action });
-    }
-
-    res.json({
-      success: true,
-      message: `Commande d'arrosage ${action} envoyée`
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
 // @route   POST /api/user/irrigation
 // @desc    Contrôler l'arrosage manuel
 exports.controlIrrigation = async (req, res) => {
