@@ -1,126 +1,137 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save, Bell } from 'lucide-react';
-import Card from '../components/common/Card';
-import Button from '../components/common/Button';
-import { useAuth } from '../context/AuthContext';
-import api from '../config/api';
-import { toast } from 'react-toastify';
+const User = require('../models/User');
 
-const Settings = () => {
-  const { user, setUser } = useAuth(); // Ajouter setUser pour mettre à jour le contexte
-  const [settings, setSettings] = useState({
-    seuilHumiditeSol: user?.seuilHumiditeSol || 500,
-    arrosageAutomatique: user?.arrosageAutomatique ?? true,
-    notificationsEnabled: user?.notificationsEnabled ?? true
-  });
-  const [loading, setLoading] = useState(false);
+// @route   GET /api/user
+// @desc    Liste des utilisateurs (Admin uniquement)
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await User.find().select('-password');
 
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      const response = await api.put('/user/settings', settings);
-      toast.success('Paramètres sauvegardés');
+    res.json({
+      success: true,
+      count: users.length,
+      data: users
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+// @route   POST /api/user/irrigation
+// @desc    Contrôler l'arrosage manuel
+exports.controlIrrigation = async (req, res) => {
+  try {
+    const { action } = req.body; // 'ON' ou 'OFF'
 
-      // Mettre à jour le contexte avec les nouvelles valeurs
-      setUser(response.data);
-
-      // Mettre à jour l'état local pour refléter immédiatement les changements
-      setSettings({
-        seuilHumiditeSol: response.data.seuilHumiditeSol,
-        arrosageAutomatique: response.data.arrosageAutomatique,
-        notificationsEnabled: response.data.notificationsEnabled
+    if (!["ON", "OFF"].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Action invalide"
       });
-    } catch (error) {
-      toast.error('Erreur lors de la sauvegarde');
-    } finally {
-      setLoading(false);
     }
-  };
 
-  return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Paramètres</h1>
-        <p className="text-gray-600 mt-2">Gérez vos préférences et configurations</p>
-      </div>
+    if (req.app.io) {
+      req.app.io.to('esp32').emit('irrigationCommand', { action });
+    }
 
-      <Card title="Irrigation" icon={SettingsIcon}>
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Seuil d'humidité du sol
-            </label>
-            <div className="flex items-center space-x-4">
-              <input
-                type="range"
-                min="0"
-                max="4095"
-                value={settings.seuilHumiditeSol}
-                onChange={(e) =>
-                  setSettings({ ...settings, seuilHumiditeSol: parseInt(e.target.value) })
-                }
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-              />
-              <span className="text-xl font-bold text-primary-600 min-w-[80px]">
-                {settings.seuilHumiditeSol}
-              </span>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Déclenchement automatique en dessous de cette valeur
-            </p>
-          </div>
+    res.json({
+      success: true,
+      message: `Commande d'arrosage ${action} envoyée`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+//    DELETE /api/user/:id
+//     Supprimer un utilisateur (Admin uniquement)
+exports.deleteUser = async (req, res) => {
+try {
+const user = await User.findByIdAndDelete(req.params.id);
+if (!user) {
+  return res.status(404).json({
+    success: false,
+    message: 'Utilisateur non trouvé'
+  });
+}
 
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div>
-              <p className="font-medium text-gray-900">Mode Automatique</p>
-              <p className="text-sm text-gray-600">Activer l'arrosage automatique</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.arrosageAutomatique}
-                onChange={(e) =>
-                  setSettings({ ...settings, arrosageAutomatique: e.target.checked })
-                }
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-            </label>
-          </div>
-        </div>
-      </Card>
+res.json({
+  success: true,
+  message: 'Utilisateur supprimé avec succès'
+});
+} catch (error) {
+res.status(500).json({
+success: false,
+message: error.message
+});
+}
+};
+// @route   PUT /api/user/settings
+// @desc    Mettre à jour les paramètres utilisateur
+// userController.js
 
-      <Card title="Notifications" icon={Bell}>
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div>
-            <p className="font-medium text-gray-900">Notifications Push</p>
-            <p className="text-sm text-gray-600">Recevoir des alertes en temps réel</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={settings.notificationsEnabled}
-              onChange={(e) =>
-                setSettings({ ...settings, notificationsEnabled: e.target.checked })
-              }
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-          </label>
-        </div>
-      </Card>
+// ✅ Mise à jour du profil
+exports.updateProfile = async (req, res) => {
+  try {
+    const { nom, telephone } = req.body;
+    const userId = req.user.id;
 
-      <Button
-        variant="primary"
-        icon={Save}
-        onClick={handleSave}
-        loading={loading}
-        className="w-full"
-      >
-        Enregistrer les modifications
-      </Button>
-    </div>
-  );
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { nom, telephone },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    res.json({
+      message: 'Profil mis à jour',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Erreur mise à jour profil:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
 };
 
-export default Settings;
+// ✅ Mise à jour des paramètres
+exports.updateSettings = async (req, res) => {
+  try {
+    const { seuilHumiditeSol, arrosageAutomatique, notificationsEnabled } = req.body;
+    const userId = req.user.id;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        seuilHumiditeSol,
+        arrosageAutomatique,
+        notificationsEnabled
+      },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    // 🔥 Envoyer les paramètres à l'ESP32 via Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.to('esp32').emit('settingsUpdate', {
+        seuilHumiditeSol,
+        arrosageAutomatique
+      });
+      console.log('⚙️ Paramètres envoyés à l\'ESP32');
+    }
+
+    res.json({
+      message: 'Paramètres mis à jour',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Erreur mise à jour paramètres:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
