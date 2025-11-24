@@ -37,34 +37,6 @@ exports.getUsers = async (req, res) => {
     });
   }
 };
-// @route   PUT /api/user/settings
-// @desc    Mettre à jour les paramètres utilisateur
-exports.updateSettings = async (req, res) => {
-  try {
-    const { seuilHumiditeSol, arrosageAutomatique, notificationsEnabled } = req.body;
-
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        seuilHumiditeSol,
-        arrosageAutomatique,
-        notificationsEnabled
-      },
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    res.json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
 // @route   POST /api/user/irrigation
 // @desc    Contrôler l'arrosage manuel
 exports.controlIrrigation = async (req, res) => {
@@ -78,7 +50,6 @@ exports.controlIrrigation = async (req, res) => {
       });
     }
 
-    // Émettre commande via Socket.IO vers ESP32
     if (req.app.io) {
       req.app.io.to('esp32').emit('irrigationCommand', { action });
     }
@@ -88,13 +59,34 @@ exports.controlIrrigation = async (req, res) => {
       message: `Commande d'arrosage ${action} envoyée`
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+// @route   POST /api/user/irrigation
+// @desc    Contrôler l'arrosage manuel
+exports.controlIrrigation = async (req, res) => {
+  try {
+    const { action } = req.body; // 'ON' ou 'OFF'
 
+    if (!["ON", "OFF"].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Action invalide"
+      });
+    }
+
+    if (req.app.io) {
+      req.app.io.to('esp32').emit('irrigationCommand', { action });
+    }
+
+    res.json({
+      success: true,
+      message: `Commande d'arrosage ${action} envoyée`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 //    DELETE /api/user/:id
 //     Supprimer un utilisateur (Admin uniquement)
 exports.deleteUser = async (req, res) => {
