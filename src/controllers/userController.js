@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const SensorData = require('../models/SensorData');
 
 // @route   GET /api/user
 // @desc    Liste des utilisateurs (Admin uniquement)
@@ -18,6 +19,7 @@ exports.getUsers = async (req, res) => {
     });
   }
 };
+
 // @route   POST /api/user/irrigation
 // @desc    Contrôler l'arrosage manuel
 exports.controlIrrigation = async (req, res) => {
@@ -31,8 +33,24 @@ exports.controlIrrigation = async (req, res) => {
       });
     }
 
+    // Envoyer la commande à l'ESP32
     if (req.app.io) {
       req.app.io.to('esp32').emit('irrigationCommand', { action });
+
+      // 🔄 Mise à jour optimiste de l'interface utilisateur
+      // On récupère la dernière donnée pour garder les autres valeurs (temp, hum, etc.)
+      const latestData = await SensorData.findOne({ userId: req.user._id })
+        .sort({ timestamp: -1 });
+
+      if (latestData) {
+        // On crée un objet simulé avec le nouvel état de la pompe
+        const updatedData = latestData.toObject();
+        updatedData.etatPompe = action === 'ON' ? 1 : 0;
+        updatedData.timestamp = new Date(); // On met à jour le timestamp pour montrer que c'est récent
+
+        // On émet vers le frontend pour mise à jour immédiate
+        req.app.io.to(req.user._id.toString()).emit('newSensorData', updatedData);
+      }
     }
 
     res.json({
@@ -40,35 +58,37 @@ exports.controlIrrigation = async (req, res) => {
       message: `Commande d'arrosage ${action} envoyée`
     });
   } catch (error) {
+    console.error('Erreur controlIrrigation:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 //    DELETE /api/user/:id
 //     Supprimer un utilisateur (Admin uniquement)
 exports.deleteUser = async (req, res) => {
-try {
-const user = await User.findByIdAndDelete(req.params.id);
-if (!user) {
-  return res.status(404).json({
-    success: false,
-    message: 'Utilisateur non trouvé'
-  });
-}
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
 
-res.json({
-  success: true,
-  message: 'Utilisateur supprimé avec succès'
-});
-} catch (error) {
-res.status(500).json({
-success: false,
-message: error.message
-});
-}
+    res.json({
+      success: true,
+      message: 'Utilisateur supprimé avec succès'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
+
 // @route   PUT /api/user/settings
 // @desc    Mettre à jour les paramètres utilisateur
-// userController.js
 
 // ✅ Mise à jour du profil
 exports.updateProfile = async (req, res) => {

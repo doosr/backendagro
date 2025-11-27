@@ -42,7 +42,7 @@ async function testEmailConfig() {
         console.log('📧 Envoi d\'un email de test...');
         const info = await transporter.sendMail({
             from: process.env.EMAIL_FROM,
-            to: process.env.EMAIL_USER, // Envoyer à soi-même pour le test
+            to: 'dawserbelgacem122@gmail.com', // Email fourni par l'utilisateur
             subject: 'Test Email - SmartPlant IoT',
             html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
