@@ -7,14 +7,21 @@ const createTransporter = () => {
     throw new Error('Configuration email manquante. Vérifiez EMAIL_HOST, EMAIL_USER et EMAIL_PASS dans .env');
   }
 
-  // Utilisation du service Gmail prédéfini pour plus de fiabilité
+  // Configuration optimisée pour Gmail sur Render (port 465 avec SSL)
   if (process.env.EMAIL_HOST.includes('gmail')) {
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true, // Utiliser SSL
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-      }
+      },
+      connectionTimeout: 10000, // 10 secondes
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
+      debug: true, // Activer les logs de debug
+      logger: true
     });
   }
 
@@ -27,6 +34,7 @@ const createTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
+    connectionTimeout: 10000,
     tls: {
       rejectUnauthorized: false
     }
