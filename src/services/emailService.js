@@ -8,10 +8,11 @@ const createTransporter = () => {
   }
 
   // Configuration optimisée pour Gmail sur Render (port 465 avec SSL)
+
   if (process.env.EMAIL_HOST.includes('gmail')) {
     return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
+      host: 'smtp.mailgun.org',
+      port: 587,
       secure: true, // Utiliser SSL
       auth: {
         user: process.env.EMAIL_USER,
