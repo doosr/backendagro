@@ -14,7 +14,7 @@ const createTransporter = () => {
   }
 
   // Configuration standard pour les autres fournisseurs
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT),
     secure: process.env.EMAIL_SECURE === 'true',
@@ -121,7 +121,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
       messageId: info.messageId
     };
   } catch (error) {
-    console.error('❌ Erreur détaillée lors de l\'envoi de l\'email:');
+    console.error('Erreur détaillée lors de l\'envoi de l\'email:');
     console.error('   Message:', error.message);
     console.error('   Code:', error.code);
     console.error('   Response:', error.response);
