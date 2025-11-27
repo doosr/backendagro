@@ -14,7 +14,7 @@ const createTransporter = () => {
   }
 
   // Configuration standard pour les autres fournisseurs
-  return nodemailer.createTransport({
+  return nodemailer.createTransporter({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT),
     secure: process.env.EMAIL_SECURE === 'true',
