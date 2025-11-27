@@ -2,7 +2,16 @@ const nodemailer = require('nodemailer');
 
 // Configuration du transporteur email
 const createTransporter = () => {
-  // Configuration standard pour tous les fournisseurs (y compris Gmail)
+  // Utilisation du service Gmail prédéfini pour plus de fiabilité
+  if (process.env.EMAIL_HOST.includes('gmail')) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+  }
 
   // Configuration standard pour les autres fournisseurs
   return nodemailer.createTransport({
@@ -30,7 +39,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
     const transporter = createTransporter();
 
     // URL de réinitialisation (frontend)
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/forgot-password/${resetToken}`;
 
     // Options de l'email
     const mailOptions = {
@@ -112,7 +121,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
       messageId: info.messageId
     };
   } catch (error) {
-    console.error('Erreur détaillée lors de l\'envoi de l\'email:');
+    console.error(' Erreur détaillée lors de l\'envoi de l\'email:');
     console.error('   Message:', error.message);
     console.error('   Code:', error.code);
     console.error('   Response:', error.response);
