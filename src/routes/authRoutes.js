@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe } = require('../controllers/authController');
+const { register, login, getMe, forgotPassword, resetPassword } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
 // Routes d'authentification
 router.post('/register', register);
 router.post('/login', login);
 router.get('/me', protect, getMe);
+
+// Routes de réinitialisation du mot de passe
+router.post('/forgot-password', forgotPassword);
+router.put('/reset-password/:resetToken', resetPassword);
 
 // Route debug (correcte)
 router.post('/debug', (req, res) => {

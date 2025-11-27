@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   nom: {
@@ -41,6 +42,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpire: {
+    type: Date,
+    select: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -48,13 +57,32 @@ const userSchema = new mongoose.Schema({
 });
 
 // Hash password avant sauvegarde
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
+
 // Méthode pour comparer les mots de passe
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
+
+// Générer et hasher le token de réinitialisation de mot de passe
+userSchema.methods.getResetPasswordToken = function () {
+  // Générer un token aléatoire
+  const resetToken = crypto.randomBytes(20).toString('hex');
+
+  // Hasher le token et le sauvegarder dans le modèle
+  this.resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Définir l'expiration du token (10 minutes)
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
+};
+
 module.exports = mongoose.model('User', userSchema);
