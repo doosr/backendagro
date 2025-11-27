@@ -1,86 +1,38 @@
 const nodemailer = require('nodemailer');
 
-// Configuration du transporteur email avec meilleure gestion d'erreurs
+// Configuration du transporteur email
 const createTransporter = () => {
-  try {
-    // Vérification des variables d'environnement requises
-    const requiredEnvVars = ['EMAIL_HOST', 'EMAIL_USER', 'EMAIL_PASS', 'EMAIL_PORT'];
-    const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  // Vérifier que les variables d'environnement nécessaires sont définies
+  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error('Configuration email manquante. Vérifiez EMAIL_HOST, EMAIL_USER et EMAIL_PASS dans .env');
+  }
 
-    if (missingVars.length > 0) {
-      throw new Error(`Variables d'environnement manquantes: ${missingVars.join(', ')}`);
-    }
-
-    // Configuration spécifique pour Gmail
-    if (process.env.EMAIL_HOST.includes('gmail')) {
-      console.log('📧 Utilisation de Gmail...');
-      return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS // Doit être un "App Password", pas le mot de passe Gmail
-        },
-        debug: true, // Active les logs détaillés
-        logger: true
-      });
-    }
-
-    // Configuration pour Outlook/Hotmail
-    if (process.env.EMAIL_HOST.includes('outlook') || process.env.EMAIL_HOST.includes('hotmail')) {
-      console.log('📧 Utilisation d\'Outlook...');
-      return nodemailer.createTransport({
-        host: 'smtp-mail.outlook.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        tls: {
-          ciphers: 'SSLv3'
-        },
-        debug: true,
-        logger: true
-      });
-    }
-
-    // Configuration standard pour autres fournisseurs
-    console.log(`📧 Configuration standard pour: ${process.env.EMAIL_HOST}`);
+  // Utilisation du service Gmail prédéfini pour plus de fiabilité
+  if (process.env.EMAIL_HOST.includes('gmail')) {
     return nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT),
-      secure: process.env.EMAIL_SECURE === 'true', // true pour port 465, false pour 587
+      service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-      },
-      tls: {
-        rejectUnauthorized: false
-      },
-      debug: true,
-      logger: true
+      }
     });
-  } catch (error) {
-    console.error('❌ Erreur lors de la création du transporteur:', error.message);
-    throw error;
   }
+
+  // Configuration standard pour les autres fournisseurs
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT) || 587,
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
 };
 
-/**
- * Teste la connexion SMTP
- */
-const testConnection = async () => {
-  try {
-    const transporter = createTransporter();
-    console.log('🔍 Test de connexion SMTP...');
-    await transporter.verify();
-    console.log('✅ Connexion SMTP réussie !');
-    return true;
-  } catch (error) {
-    console.error('❌ Échec de la connexion SMTP:', error.message);
-    return false;
-  }
-};
 
 /**
  * Envoie un email de réinitialisation de mot de passe
@@ -89,33 +41,14 @@ const testConnection = async () => {
  */
 const sendPasswordResetEmail = async (user, resetToken) => {
   try {
-    // Validation des paramètres
-    if (!user || !user.email) {
-      throw new Error('Utilisateur ou email invalide');
-    }
-    if (!resetToken) {
-      throw new Error('Token de réinitialisation manquant');
-    }
-
-    console.log(`📨 Envoi d'email à: ${user.email}`);
-
     const transporter = createTransporter();
 
-    // Test de connexion avant l'envoi
-    try {
-      await transporter.verify();
-      console.log('✅ Serveur SMTP prêt');
-    } catch (verifyError) {
-      console.error('⚠️ Avertissement: vérification SMTP échouée:', verifyError.message);
-      // Continue quand même, parfois verify échoue mais sendMail fonctionne
-    }
-
     // URL de réinitialisation (frontend)
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/forgot-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
     // Options de l'email
     const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM,
       to: user.email,
       subject: 'Réinitialisation de votre mot de passe - SmartPlant IoT',
       html: `
@@ -128,7 +61,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
             <h2 style="color: #1f2937; margin-top: 0;">Réinitialisation de mot de passe</h2>
             
             <p style="color: #4b5563; line-height: 1.6;">
-              Bonjour ${user.nom || 'Utilisateur'},
+              Bonjour ${user.nom},
             </p>
             
             <p style="color: #4b5563; line-height: 1.6;">
@@ -169,7 +102,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
       text: `
         Réinitialisation de mot de passe - SmartPlant IoT
         
-        Bonjour ${user.nom || 'Utilisateur'},
+        Bonjour ${user.nom},
         
         Vous avez demandé la réinitialisation de votre mot de passe.
         Cliquez sur le lien ci-dessous pour créer un nouveau mot de passe :
@@ -185,52 +118,31 @@ const sendPasswordResetEmail = async (user, resetToken) => {
     };
 
     // Envoi de l'email
-    console.log('📤 Envoi en cours...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de réinitialisation envoyé avec succès!');
-    console.log('   Message ID:', info.messageId);
-    console.log('   Response:', info.response);
+    console.log('Email de réinitialisation envoyé:', info.messageId);
 
     return {
       success: true,
       messageId: info.messageId
     };
   } catch (error) {
-    console.error('❌ Erreur détaillée lors de l\'envoi de l\'email:');
+    console.error(' Erreur détaillée lors de l\'envoi de l\'email:');
     console.error('   Message:', error.message);
     console.error('   Code:', error.code);
-    console.error('   Command:', error.command);
-
-    if (error.response) {
-      console.error('   Response:', error.response);
-    }
-
-    if (error.responseCode) {
-      console.error('   Response Code:', error.responseCode);
-    }
+    console.error('   Response:', error.response);
+    console.error('   Stack:', error.stack);
 
     // Vérifier la config (sans afficher le mot de passe)
-    console.error('🔍 Configuration utilisée:');
+    console.error('🔍 Config utilisée:');
     console.error(`   Host: ${process.env.EMAIL_HOST}`);
     console.error(`   Port: ${process.env.EMAIL_PORT}`);
     console.error(`   Secure: ${process.env.EMAIL_SECURE}`);
     console.error(`   User: ${process.env.EMAIL_USER}`);
-    console.error(`   From: ${process.env.EMAIL_FROM}`);
 
-    // Messages d'erreur spécifiques
-    if (error.code === 'EAUTH') {
-      throw new Error('Authentification échouée. Vérifiez EMAIL_USER et EMAIL_PASS. Pour Gmail, utilisez un "App Password".');
-    } else if (error.code === 'ESOCKET') {
-      throw new Error('Impossible de se connecter au serveur SMTP. Vérifiez EMAIL_HOST et EMAIL_PORT.');
-    } else if (error.code === 'ETIMEDOUT') {
-      throw new Error('Timeout de connexion. Vérifiez votre connexion internet et les paramètres du firewall.');
-    } else {
-      throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
-    }
+    throw new Error('Impossible d\'envoyer l\'email de réinitialisation: ' + error.message);
   }
 };
 
 module.exports = {
-  sendPasswordResetEmail,
-  testConnection
+  sendPasswordResetEmail
 };
