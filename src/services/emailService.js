@@ -1,48 +1,28 @@
 const nodemailer = require('nodemailer');
 
-// Configuration du transporteur email
+// Configuration du transporteur email spécifiquement pour Gmail
 const createTransporter = () => {
   // Vérifier que les variables d'environnement nécessaires sont définies
-  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('Configuration email manquante. Vérifiez EMAIL_HOST, EMAIL_USER et EMAIL_PASS dans .env');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error('Configuration email manquante. Vérifiez EMAIL_USER et EMAIL_PASS dans .env');
   }
 
-  // Configuration pour Gmail
-  if (process.env.EMAIL_HOST.includes('gmail')) {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // Doit être un App Password de Gmail
-      }
-    });
-  }
+  console.log('📧 Configuration email:');
+  console.log('   User:', process.env.EMAIL_USER);
+  console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
 
-  // Configuration pour Mailgun
-  if (process.env.EMAIL_HOST.includes('mailgun')) {
-    return nodemailer.createTransport({
-      host: 'smtp.mailgun.org',
-      port: 587,
-      secure: false, // STARTTLS, pas SSL direct
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-  }
-
-  // Configuration standard pour les autres fournisseurs
+  // Configuration optimisée pour Gmail avec App Password
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_SECURE === 'true', // true pour port 465, false pour autres
+    service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
-    tls: {
-      rejectUnauthorized: false
-    }
+    // Options supplémentaires pour améliorer la fiabilité
+    pool: true,
+    maxConnections: 1,
+    rateDelta: 20000,
+    rateLimit: 5
   });
 };
 
@@ -53,10 +33,17 @@ const createTransporter = () => {
  */
 const sendPasswordResetEmail = async (user, resetToken) => {
   try {
+    console.log('📤 Tentative d\'envoi d\'email à:', user.email);
+
     const transporter = createTransporter();
+
+    // Vérifier la connexion SMTP
+    await transporter.verify();
+    console.log('✅ Connexion SMTP établie avec succès');
 
     // URL de réinitialisation (frontend)
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    console.log('🔗 URL de réinitialisation:', resetUrl);
 
     // Options de l'email
     const mailOptions = {
@@ -131,22 +118,58 @@ const sendPasswordResetEmail = async (user, resetToken) => {
 
     // Envoi de l'email
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de réinitialisation envoyé:', info.messageId);
+    console.log('✅ Email de réinitialisation envoyé avec succès');
+    console.log('   Message ID:', info.messageId);
+    console.log('   Destinataire:', user.email);
 
     return {
       success: true,
       messageId: info.messageId
     };
   } catch (error) {
-    console.error('❌ Erreur détaillée lors de l\'envoi de l\'email:');
+    console.error('❌ ERREUR lors de l\'envoi de l\'email:');
+    console.error('   Type:', error.name);
     console.error('   Message:', error.message);
     console.error('   Code:', error.code);
-    console.error('   Response:', error.response);
 
-    throw new Error('Impossible d\'envoyer l\'email de réinitialisation: ' + error.message);
+    if (error.code === 'EAUTH') {
+      console.error('');
+      console.error('🔴 ERREUR D\'AUTHENTIFICATION Gmail:');
+      console.error('   Cause probable: App Password invalide ou non configuré');
+      console.error('   Solution:');
+      console.error('   1. Activez la validation en 2 étapes sur votre compte Gmail');
+      console.error('   2. Créez un App Password: https://myaccount.google.com/apppasswords');
+      console.error('   3. Remplacez EMAIL_PASS dans .env par ce nouveau mot de passe');
+      console.error('');
+    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+      console.error('');
+      console.error('🔴 ERREUR DE CONNEXION:');
+      console.error('   Vérifiez votre connexion internet');
+      console.error('   Vérifiez que smtp.gmail.com est accessible');
+      console.error('');
+    }
+
+    throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
+  }
+};
+
+/**
+ * Fonction de test pour vérifier la configuration email
+ */
+const testEmailConfiguration = async () => {
+  try {
+    console.log('🧪 Test de la configuration email...');
+    const transporter = createTransporter();
+    await transporter.verify();
+    console.log('✅ Configuration email valide !');
+    return { success: true, message: 'Configuration valide' };
+  } catch (error) {
+    console.error('❌ Configuration email invalide:', error.message);
+    return { success: false, error: error.message };
   }
 };
 
 module.exports = {
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  testEmailConfiguration
 };
