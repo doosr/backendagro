@@ -4,11 +4,14 @@ const nodemailer = require('nodemailer');
 const createTransporter = () => {
   return nodemailer.createTransporter({
     host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
+    port: parseInt(process.env.EMAIL_PORT),
     secure: process.env.EMAIL_SECURE === 'true', // true pour 465, false pour 587
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
+    },
+    tls: {
+      rejectUnauthorized: false
     }
   });
 };
@@ -99,7 +102,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
     // Envoi de l'email
     const info = await transporter.sendMail(mailOptions);
     console.log('Email de réinitialisation envoyé:', info.messageId);
-    
+
     return {
       success: true,
       messageId: info.messageId
