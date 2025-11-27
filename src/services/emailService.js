@@ -2,16 +2,7 @@ const nodemailer = require('nodemailer');
 
 // Configuration du transporteur email
 const createTransporter = () => {
-  // Utilisation du service Gmail prédéfini pour plus de fiabilité
-  if (process.env.EMAIL_HOST.includes('gmail')) {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-  }
+  // Configuration standard pour tous les fournisseurs (y compris Gmail)
 
   // Configuration standard pour les autres fournisseurs
   return nodemailer.createTransport({
