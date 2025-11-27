@@ -2,10 +2,22 @@ const nodemailer = require('nodemailer');
 
 // Configuration du transporteur email
 const createTransporter = () => {
+  // Utilisation du service Gmail prédéfini pour plus de fiabilité
+  if (process.env.EMAIL_HOST.includes('gmail')) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+  }
+
+  // Configuration standard pour les autres fournisseurs
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT),
-    secure: process.env.EMAIL_SECURE === 'true', // true pour 465, false pour 587
+    secure: process.env.EMAIL_SECURE === 'true',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
@@ -109,8 +121,20 @@ const sendPasswordResetEmail = async (user, resetToken) => {
       messageId: info.messageId
     };
   } catch (error) {
-    console.error('Erreur lors de l\'envoi de l\'email:', error);
-    throw new Error('Impossible d\'envoyer l\'email de réinitialisation');
+    console.error('❌ Erreur détaillée lors de l\'envoi de l\'email:');
+    console.error('   Message:', error.message);
+    console.error('   Code:', error.code);
+    console.error('   Response:', error.response);
+    console.error('   Stack:', error.stack);
+
+    // Vérifier la config (sans afficher le mot de passe)
+    console.error('🔍 Config utilisée:');
+    console.error(`   Host: ${process.env.EMAIL_HOST}`);
+    console.error(`   Port: ${process.env.EMAIL_PORT}`);
+    console.error(`   Secure: ${process.env.EMAIL_SECURE}`);
+    console.error(`   User: ${process.env.EMAIL_USER}`);
+
+    throw new Error('Impossible d\'envoyer l\'email de réinitialisation: ' + error.message);
   }
 };
 
