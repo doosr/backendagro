@@ -3,10 +3,12 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
+const testEmailRoutes = require('./routes/testEmailRoutes'); // Ajoutez ceci
 
 // ----------------------
 // MIDDLEWARES
 // ----------------------
+app.use('/api/test-email', testEmailRoutes);
 
 // CORS
 app.use(cors({
