@@ -7,22 +7,27 @@ const createTransporter = () => {
     throw new Error('Configuration email manquante. Vérifiez EMAIL_HOST, EMAIL_USER et EMAIL_PASS dans .env');
   }
 
-  // Configuration optimisée pour Gmail sur Render (port 465 avec SSL)
-
+  // Configuration pour Gmail
   if (process.env.EMAIL_HOST.includes('gmail')) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS // Doit être un App Password de Gmail
+      }
+    });
+  }
+
+  // Configuration pour Mailgun
+  if (process.env.EMAIL_HOST.includes('mailgun')) {
     return nodemailer.createTransport({
       host: 'smtp.mailgun.org',
       port: 587,
-      secure: true, // Utiliser SSL
+      secure: false, // STARTTLS, pas SSL direct
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-      },
-      connectionTimeout: 10000, // 10 secondes
-      greetingTimeout: 5000,
-      socketTimeout: 10000,
-      debug: true, // Activer les logs de debug
-      logger: true
+      }
     });
   }
 
@@ -30,18 +35,16 @@ const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_SECURE === 'true',
+    secure: process.env.EMAIL_SECURE === 'true', // true pour port 465, false pour autres
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
-    connectionTimeout: 10000,
     tls: {
       rejectUnauthorized: false
     }
   });
 };
-
 
 /**
  * Envoie un email de réinitialisation de mot de passe
@@ -57,7 +60,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
 
     // Options de l'email
     const mailOptions = {
-      from: process.env.EMAIL_FROM,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: user.email,
       subject: 'Réinitialisation de votre mot de passe - SmartPlant IoT',
       html: `
@@ -128,25 +131,17 @@ const sendPasswordResetEmail = async (user, resetToken) => {
 
     // Envoi de l'email
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email de réinitialisation envoyé:', info.messageId);
+    console.log('✅ Email de réinitialisation envoyé:', info.messageId);
 
     return {
       success: true,
       messageId: info.messageId
     };
   } catch (error) {
-    console.error(' Erreur détaillée lors de l\'envoi de l\'email:');
+    console.error('❌ Erreur détaillée lors de l\'envoi de l\'email:');
     console.error('   Message:', error.message);
     console.error('   Code:', error.code);
     console.error('   Response:', error.response);
-    console.error('   Stack:', error.stack);
-
-    // Vérifier la config (sans afficher le mot de passe)
-    console.error('🔍 Config utilisée:');
-    console.error(`   Host: ${process.env.EMAIL_HOST}`);
-    console.error(`   Port: ${process.env.EMAIL_PORT}`);
-    console.error(`   Secure: ${process.env.EMAIL_SECURE}`);
-    console.error(`   User: ${process.env.EMAIL_USER}`);
 
     throw new Error('Impossible d\'envoyer l\'email de réinitialisation: ' + error.message);
   }
