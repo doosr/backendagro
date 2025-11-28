@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getUsers,
   updateSettings,
+  getSettings,
   controlIrrigation,
   deleteUser,
   updateProfile
@@ -14,6 +15,9 @@ router.get('/', protect, authorize('admin'), getUsers);
 
 // ✅ Mise à jour du profil (nom, téléphone, etc.)
 router.put('/profile', protect, updateProfile);
+
+// ✅ Récupération des paramètres (pour ESP32)
+router.get('/settings', protect, getSettings);
 
 // ✅ Mise à jour des paramètres (irrigation, notifications)
 router.put('/settings', protect, updateSettings);

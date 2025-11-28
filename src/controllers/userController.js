@@ -176,3 +176,35 @@ exports.updateSettings = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
+
+// ✅ Récupérer les paramètres utilisateur (pour ESP32)
+exports.getSettings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId).select('seuilHumiditeSol arrosageAutomatique notificationsEnabled');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        seuilHumiditeSol: user.seuilHumiditeSol || 500,
+        arrosageAutomatique: user.arrosageAutomatique !== undefined ? user.arrosageAutomatique : true,
+        notificationsEnabled: user.notificationsEnabled !== undefined ? user.notificationsEnabled : true
+      }
+    });
+  } catch (error) {
+    console.error('Erreur récupération paramètres:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
+    });
+  }
+};
