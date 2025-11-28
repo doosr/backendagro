@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const SensorData = require('../models/SensorData');
+const IrrigationHistory = require('../models/IrrigationHistory');
 
 // @route   GET /api/user
 // @desc    Liste des utilisateurs (Admin uniquement)
@@ -35,10 +36,19 @@ exports.controlIrrigation = async (req, res) => {
 
     console.log(`💧 Commande d'irrigation: ${action} pour utilisateur ${req.user._id}`);
 
+    // Enregistrer l'historique
+    await IrrigationHistory.create({
+      userId: req.user._id,
+      action,
+      source: 'MANUAL',
+      timestamp: new Date()
+    });
+
     // Envoyer la commande à l'ESP32
-    if (req.app.io) {
+    const io = req.app.get('io');
+    if (io) {
       // Émettre la commande à la room ESP32
-      req.app.io.to('esp32').emit('irrigationCommand', {
+      io.to('esp32').emit('irrigationCommand', {
         action,
         userId: req.user._id.toString(),
         timestamp: new Date()
@@ -58,7 +68,7 @@ exports.controlIrrigation = async (req, res) => {
         updatedData.manualMode = true; // Indiquer que c'est un mode manuel
 
         // Émettre vers le frontend pour mise à jour immédiate
-        req.app.io.to(req.user._id.toString()).emit('newSensorData', updatedData);
+        io.to(req.user._id.toString()).emit('newSensorData', updatedData);
         console.log(`📡 Mise à jour optimiste envoyée au frontend`);
       }
     } else {

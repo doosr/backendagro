@@ -53,6 +53,7 @@ app.use('/api/alert', require('./routes/alertRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/reminders', require('./routes/notificationReminderRoutes'));
+app.use('/api/irrigation', require('./routes/irrigationRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {
