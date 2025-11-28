@@ -29,37 +29,58 @@ exports.controlIrrigation = async (req, res) => {
     if (!["ON", "OFF"].includes(action)) {
       return res.status(400).json({
         success: false,
-        message: "Action invalide"
+        message: "Action invalide. Utilisez 'ON' ou 'OFF'"
       });
     }
 
+    console.log(`💧 Commande d'irrigation: ${action} pour utilisateur ${req.user._id}`);
+
     // Envoyer la commande à l'ESP32
     if (req.app.io) {
-      req.app.io.to('esp32').emit('irrigationCommand', { action });
+      // Émettre la commande à la room ESP32
+      req.app.io.to('esp32').emit('irrigationCommand', {
+        action,
+        userId: req.user._id.toString(),
+        timestamp: new Date()
+      });
+
+      console.log(`📤 Commande envoyée à l'ESP32: ${action}`);
 
       // 🔄 Mise à jour optimiste de l'interface utilisateur
-      // On récupère la dernière donnée pour garder les autres valeurs (temp, hum, etc.)
       const latestData = await SensorData.findOne({ userId: req.user._id })
         .sort({ timestamp: -1 });
 
       if (latestData) {
-        // On crée un objet simulé avec le nouvel état de la pompe
+        // Créer un objet simulé avec le nouvel état de la pompe
         const updatedData = latestData.toObject();
         updatedData.etatPompe = action === 'ON' ? 1 : 0;
-        updatedData.timestamp = new Date(); // On met à jour le timestamp pour montrer que c'est récent
+        updatedData.timestamp = new Date();
+        updatedData.manualMode = true; // Indiquer que c'est un mode manuel
 
-        // On émet vers le frontend pour mise à jour immédiate
+        // Émettre vers le frontend pour mise à jour immédiate
         req.app.io.to(req.user._id.toString()).emit('newSensorData', updatedData);
+        console.log(`📡 Mise à jour optimiste envoyée au frontend`);
       }
+    } else {
+      console.warn('⚠️ Socket.IO non disponible');
+      return res.status(503).json({
+        success: false,
+        message: 'Service de communication temps réel non disponible'
+      });
     }
 
     res.json({
       success: true,
-      message: `Commande d'arrosage ${action} envoyée`
+      message: `Commande d'arrosage ${action} envoyée avec succès`,
+      action,
+      timestamp: new Date()
     });
   } catch (error) {
-    console.error('Erreur controlIrrigation:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('❌ Erreur controlIrrigation:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
