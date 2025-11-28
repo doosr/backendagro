@@ -21,3 +21,40 @@ exports.getHistory = async (req, res) => {
         });
     }
 };
+
+// @route   DELETE /api/irrigation/history/:id
+// @desc    Supprimer une entrée d'historique
+exports.deleteHistoryItem = async (req, res) => {
+    try {
+        const historyItem = await IrrigationHistory.findById(req.params.id);
+
+        if (!historyItem) {
+            return res.status(404).json({
+                success: false,
+                message: 'Entrée non trouvée'
+            });
+        }
+
+        // Vérifier que l'entrée appartient à l'utilisateur
+        if (historyItem.userId.toString() !== req.user.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Non autorisé'
+            });
+        }
+
+        await historyItem.deleteOne();
+
+        res.json({
+            success: true,
+            message: 'Entrée supprimée avec succès',
+            id: req.params.id
+        });
+    } catch (error) {
+        console.error('Erreur deleteHistoryItem:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la suppression'
+        });
+    }
+};
