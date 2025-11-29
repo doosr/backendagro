@@ -51,7 +51,42 @@ io.on('connection', (socket) => {
   // ESP32 rejoint la room spéciale
   socket.on('esp32-connect', () => {
     socket.join('esp32');
-    console.log('🤖 ESP32 connecté');
+    console.log('🤖 ESP32 connecté via esp32-connect');
+  });
+
+  // Écouteur alternatif pour ESP32 (au cas où)
+  socket.on('message', (data) => {
+    try {
+      const message = typeof data === 'string' ? JSON.parse(data) : data;
+
+      if (message.type === 'esp32Connect') {
+        socket.join('esp32');
+        console.log('🤖 ESP32 connecté via message type');
+        socket.emit('connected', { status: 'ok', message: 'ESP32 connected successfully' });
+      }
+    } catch (error) {
+      console.error('❌ Erreur parsing message:', error);
+    }
+  });
+
+  // Gérer les messages texte bruts (pour Socket.IO v4 avec transport websocket)
+  socket.on('text', (text) => {
+    try {
+      const message = JSON.parse(text);
+      if (message.type === 'esp32Connect') {
+        socket.join('esp32');
+        console.log('🤖 ESP32 connecté via text');
+      }
+    } catch (error) {
+      console.error('❌ Erreur parsing text:', error);
+    }
+  });
+
+  // Écouter les commandes d'irrigation depuis le contrôleur
+  socket.on('irrigationCommand', (data) => {
+    console.log('💧 Commande irrigation reçue du serveur:', data);
+    // Relayer la commande aux ESP32 connectés
+    io.to('esp32').emit('irrigationCommand', data);
   });
 
   socket.on('disconnect', () => {

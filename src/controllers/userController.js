@@ -47,11 +47,20 @@ exports.controlIrrigation = async (req, res) => {
     // Envoyer la commande à l'ESP32
     const io = req.app.get('io');
     if (io) {
-      // Émettre la commande à la room ESP32
-      io.to('esp32').emit('irrigationCommand', {
+      const commandData = {
         action,
         userId: req.user._id.toString(),
         timestamp: new Date()
+      };
+
+      // Émettre la commande à la room ESP32 (format Socket.IO standard)
+      io.to('esp32').emit('irrigationCommand', commandData);
+
+      // Pour ESP32 avec client WebSocket brut, envoyer aussi en format texte JSON simple
+      const esp32Sockets = await io.in('esp32').fetchSockets();
+      esp32Sockets.forEach(socket => {
+        // Envoyer un message texte simple que l'ESP32 peut parser
+        socket.send(JSON.stringify(commandData));
       });
 
       console.log(`📤 Commande envoyée à l'ESP32: ${action}`);
@@ -174,7 +183,7 @@ exports.updateSettings = async (req, res) => {
         seuilHumiditeSol,
         arrosageAutomatique
       });
-      console.log('⚙️ Paramètres envoyés à l\'ESP32');
+      console.log("⚙️ Paramètres envoyés à l'ESP32");
     }
 
     res.json({
