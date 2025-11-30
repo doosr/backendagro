@@ -34,11 +34,14 @@ const createTransporter = () => {
  */
 const sendPasswordResetEmail = async (user, resetToken) => {
   try {
-    console.log('Tentative d\'envoi d\'email à:', user.email);
+    console.log('📧 Début sendPasswordResetEmail');
+    console.log('   User:', user?.email);
+    console.log('   Token:', resetToken ? 'Présent' : 'MANQUANT');
 
     const transporter = createTransporter();
 
     // Vérifier la connexion SMTP
+    console.log('🔍 Vérification de la connexion SMTP...');
     await transporter.verify();
     console.log('✅ Connexion SMTP établie avec succès');
 
@@ -132,6 +135,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
     console.error('   Type:', error.name);
     console.error('   Message:', error.message);
     console.error('   Code:', error.code);
+    console.error('   Stack:', error.stack);
 
     if (error.code === 'EAUTH') {
       console.error('');
@@ -150,7 +154,8 @@ const sendPasswordResetEmail = async (user, resetToken) => {
       console.error('');
     }
 
-    throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
+    // Retourner une erreur détaillée pour le debugging
+    throw new Error(`Impossible d'envoyer l'email: ${error.message} (${error.code || 'NO_CODE'})`);
   }
 };
 
