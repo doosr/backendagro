@@ -1,15 +1,8 @@
 const User = require('../models/User');
-const jwt = require('jsonwebtoken');
+const Token = require('../models/Token');
 const crypto = require('crypto');
 const { sendPasswordResetEmail, sendEmailVerification } = require('../services/emailService');
 const AdminNotification = require('../models/AdminNotification');
-
-// Générer JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
-  });
-};
 
 // POST /api/auth/register - Inscription utilisateur
 exports.register = async (req, res) => {
@@ -47,6 +40,9 @@ exports.register = async (req, res) => {
         });
       }
 
+      // Générer les tokens pour connexion immédiate (optionnel, ici on demande vérification)
+      // Pour l'instant on ne connecte pas automatiquement sans vérification
+
       res.status(201).json({
         success: true,
         message: 'Un email de vérification a été envoyé à votre adresse email',
@@ -76,6 +72,122 @@ exports.register = async (req, res) => {
   }
 };
 
+// POST /api/auth/login
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const userAgent = req.headers['user-agent'];
+    const ip = req.ip;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email et mot de passe requis'
+      });
+    }
+
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({
+        success: false,
+        message: 'Email ou mot de passe incorrect'
+      });
+    }
+
+    // Générer les tokens (Access + Refresh + Session)
+    const tokens = await Token.generateTokens(user._id, { userAgent, ip });
+
+    res.json({
+      success: true,
+      ...tokens, // accessToken, refreshToken, sessionId...
+      user: {
+        id: user._id,
+        nom: user.nom,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// POST /api/auth/refresh-token
+exports.refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    const userAgent = req.headers['user-agent'];
+    const ip = req.ip;
+
+    if (!refreshToken) {
+      return res.status(400).json({ message: "Refresh token requis" });
+    }
+
+    // Trouver le token refresh valide
+    const tokenDoc = await Token.findOne({
+      refreshToken,
+      revoked: false,
+      refreshTokenExpire: { $gt: Date.now() }
+    });
+
+    if (!tokenDoc) {
+      return res.status(401).json({ message: "Refresh token invalide ou expiré" });
+    }
+
+    // Révoquer l'ancien token (rotation de refresh token pour sécurité)
+    tokenDoc.revoked = true;
+    tokenDoc.revokedAt = Date.now();
+    await tokenDoc.save();
+
+    // Générer une nouvelle paire de tokens
+    const newTokens = await Token.generateTokens(tokenDoc.userId, { userAgent, ip });
+
+    res.json({
+      success: true,
+      ...newTokens
+    });
+
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+// POST /api/auth/logout
+exports.logout = async (req, res) => {
+  try {
+    // req.token est attaché par le middleware protect
+    if (req.token) {
+      req.token.revoked = true;
+      req.token.revokedAt = Date.now();
+      await req.token.save();
+    }
+
+    res.json({ success: true, message: "Déconnecté avec succès" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// POST /api/auth/logout-all
+exports.logoutAll = async (req, res) => {
+  try {
+    await Token.updateMany(
+      { userId: req.user._id, revoked: false },
+      { revoked: true, revokedAt: Date.now() }
+    );
+
+    res.json({ success: true, message: "Déconnecté de tous les appareils" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // GET /api/auth/verify-email/:token
 exports.verifyEmail = async (req, res) => {
   try {
@@ -101,12 +213,16 @@ exports.verifyEmail = async (req, res) => {
     user.verificationExpire = undefined;
     await user.save();
 
-    const token = generateToken(user._id);
+    // Générer tokens pour connexion auto après vérification
+    const tokens = await Token.generateTokens(user._id, {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip
+    });
 
     res.json({
       success: true,
       message: 'Email vérifié avec succès',
-      token,
+      ...tokens,
       user: {
         id: user._id,
         nom: user.nom,
@@ -172,48 +288,6 @@ exports.resendVerification = async (req, res) => {
     }
   } catch (error) {
     console.error('Erreur resend verification:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-// POST /api/auth/login
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email et mot de passe requis'
-      });
-    }
-
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({
-        success: false,
-        message: 'Email ou mot de passe incorrect'
-      });
-    }
-
-    const token = generateToken(user._id);
-
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        nom: user.nom,
-        email: user.email,
-        role: user.role,
-        emailVerified: user.emailVerified
-      }
-    });
-  } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message
@@ -331,12 +405,16 @@ exports.resetPassword = async (req, res) => {
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    const token = generateToken(user._id);
+    // Générer tokens pour connexion auto
+    const tokens = await Token.generateTokens(user._id, {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip
+    });
 
     res.json({
       success: true,
       message: 'Mot de passe réinitialisé avec succès',
-      token,
+      ...tokens,
       user: {
         id: user._id,
         nom: user.nom,

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Token = require('../models/Token');
 
 exports.protect = async (req, res, next) => {
   try {
@@ -9,19 +10,32 @@ exports.protect = async (req, res, next) => {
       return res.status(401).json({ message: "Accès non autorisé (token manquant)" });
     }
 
-    const token = auth.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const accessToken = auth.split(" ")[1];
 
-    const user = await User.findById(decoded.id);
+    // 1. Vérifier si le token existe en base et n'est pas révoqué
+    const tokenDoc = await Token.findOne({
+      accessToken,
+      revoked: false,
+      accessTokenExpire: { $gt: Date.now() }
+    });
+
+    if (!tokenDoc) {
+      return res.status(401).json({ message: "Session expirée ou invalide" });
+    }
+
+    // 2. Récupérer l'utilisateur
+    const user = await User.findById(tokenDoc.userId);
     if (!user) {
       return res.status(401).json({ message: "Utilisateur introuvable" });
     }
 
     req.user = user;
+    req.token = tokenDoc; // Attacher le doc token pour usage ultérieur (ex: logout)
     next();
 
   } catch (err) {
-    return res.status(401).json({ message: "Token invalide" });
+    console.error('Auth middleware error:', err);
+    return res.status(401).json({ message: "Non autorisé" });
   }
 };
 

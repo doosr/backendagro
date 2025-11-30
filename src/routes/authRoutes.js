@@ -13,4 +13,9 @@ router.put('/reset-password/:resetToken', authController.resetPassword);
 router.get('/verify-email/:token', authController.verifyEmail);
 router.post('/resend-verification', authController.resendVerification);
 
+// Routes pour la gestion des tokens
+router.post('/refresh-token', authController.refreshToken);
+router.post('/logout', protect, authController.logout);
+router.post('/logout-all', protect, authController.logoutAll);
+
 module.exports = router;
