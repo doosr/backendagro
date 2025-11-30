@@ -7,6 +7,7 @@
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
+    "@sendinblue/client": "^3.3.1",
     "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -17,8 +18,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^7.0.0",
     "mongoose": "^8.19.4",
-    "nodemailer": "^6.9.11",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.11",
     "router": "^2.2.0",
     "socket.io": "^4.7.2"
   },

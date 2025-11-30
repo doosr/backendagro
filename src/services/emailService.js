@@ -1,73 +1,82 @@
-// Import nodemailer with comprehensive debugging and error handling
-let nodemailer;
-let createTransport;
+const SibApiV3Sdk = require('@sendinblue/client');
+
+// Configuration de l'API Brevo (Sendinblue)
+let apiInstance;
+let apiKey;
 
 try {
-  // First, require the module
-  nodemailer = require('nodemailer');
+  // Initialiser le client API
+  const defaultClient = SibApiV3Sdk.ApiClient.instance;
+  apiKey = defaultClient.authentications['api-key'];
 
-  // Debug: Log what we got
-  console.log('📦 Nodemailer loaded successfully');
-  console.log('   Type:', typeof nodemailer);
-  console.log('   Keys:', Object.keys(nodemailer).join(', '));
-  console.log('   Has createTransporter:', 'createTransporter' in nodemailer);
-  console.log('   Has createTransport:', 'createTransport' in nodemailer);
-  console.log('   Has default:', 'default' in nodemailer);
-
-  // Try different ways to get the createTransport function
-  // NOTE: The correct API is createTransport, not createTransporter!
-  if (typeof nodemailer.createTransport === 'function') {
-    createTransport = nodemailer.createTransport.bind(nodemailer);
-    console.log('✅ Using nodemailer.createTransport');
-  } else if (typeof nodemailer.createTransporter === 'function') {
-    createTransport = nodemailer.createTransporter.bind(nodemailer);
-    console.log('✅ Using nodemailer.createTransporter');
-  } else if (nodemailer.default && typeof nodemailer.default.createTransport === 'function') {
-    createTransport = nodemailer.default.createTransport.bind(nodemailer.default);
-    console.log('✅ Using nodemailer.default.createTransport');
-  } else if (nodemailer.default && typeof nodemailer.default.createTransporter === 'function') {
-    createTransport = nodemailer.default.createTransporter.bind(nodemailer.default);
-    console.log('✅ Using nodemailer.default.createTransporter');
+  // Vérifier que la clé API est configurée
+  if (!process.env.BREVO_API_KEY) {
+    console.warn('⚠️  BREVO_API_KEY non configurée dans .env');
+    console.warn('   L\'envoi d\'emails ne fonctionnera pas');
+    console.warn('   Obtenez une clé API sur: https://app.brevo.com/settings/keys/api');
   } else {
-    throw new Error('Could not find createTransport or createTransporter function in nodemailer module');
+    apiKey.apiKey = process.env.BREVO_API_KEY;
+    apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+    console.log('✅ API Brevo configurée avec succès');
   }
-
-  console.log('✅ Nodemailer configured successfully');
 } catch (error) {
-  console.error('❌ CRITICAL ERROR loading nodemailer:');
-  console.error('   Message:', error.message);
+  console.error('❌ ERREUR lors de la configuration de l\'API Brevo:', error.message);
   console.error('   Stack:', error.stack);
-  throw error;
+  // Ne pas lever d'exception pour permettre au module de se charger
+  // L'erreur sera levée lors de l'utilisation des fonctions
 }
 
-// Configuration du transporteur email générique (supporte Gmail, Brevo, SendGrid, etc.)
-const createTransporter = () => {
-  // Vérifier que les variables d'environnement nécessaires sont définies
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('Configuration email manquante. Vérifiez EMAIL_USER et EMAIL_PASS dans .env');
+/**
+ * Envoie un email via l'API Brevo
+ * @param {Object} emailData - Données de l'email
+ */
+const sendEmail = async (emailData) => {
+  if (!apiInstance || !process.env.BREVO_API_KEY) {
+    throw new Error('API Brevo non configurée. Vérifiez BREVO_API_KEY dans .env');
   }
 
-  console.log('📧 Configuration email:');
-  console.log('   Host:', process.env.EMAIL_HOST || 'smtp.gmail.com');
-  console.log('   Port:', process.env.EMAIL_PORT || 587);
-  console.log('   User:', process.env.EMAIL_USER);
-  console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
+  try {
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
 
-  // Configuration SMTP générique (supporte Gmail, Brevo, SendGrid, etc.)
-  // Use the createTransport function we resolved earlier
-  return createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: false, // false pour 587, true pour 465
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    },
-    // Options pour éviter les timeouts
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
-  });
+    sendSmtpEmail.sender = {
+      email: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      name: 'SmartPlant IoT'
+    };
+    sendSmtpEmail.to = [{ email: emailData.to }];
+    sendSmtpEmail.subject = emailData.subject;
+    sendSmtpEmail.htmlContent = emailData.html;
+    sendSmtpEmail.textContent = emailData.text;
+
+    console.log('📧 Envoi email via API Brevo...');
+    console.log('   De:', sendSmtpEmail.sender.email);
+    console.log('   À:', emailData.to);
+    console.log('   Sujet:', emailData.subject);
+
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    console.log('✅ Email envoyé avec succès via API Brevo');
+    console.log('   Message ID:', result.messageId);
+
+    return {
+      success: true,
+      messageId: result.messageId
+    };
+  } catch (error) {
+    console.error('❌ ERREUR lors de l\'envoi via API Brevo:');
+    console.error('   Message:', error.message);
+    console.error('   Body:', error.response?.body);
+
+    if (error.response?.body?.code === 'unauthorized') {
+      console.error('');
+      console.error('🔴 ERREUR D\'AUTHENTIFICATION:');
+      console.error('   La clé API Brevo est invalide');
+      console.error('   Vérifiez BREVO_API_KEY dans .env');
+      console.error('   Obtenez une nouvelle clé sur: https://app.brevo.com/settings/keys/api');
+      console.error('');
+    }
+
+    throw new Error(`Impossible d'envoyer l'email: ${error.message}`);
+  }
 };
 
 /**
@@ -81,20 +90,11 @@ const sendPasswordResetEmail = async (user, resetToken) => {
     console.log('   User:', user?.email);
     console.log('   Token:', resetToken ? 'Présent' : 'MANQUANT');
 
-    const transporter = createTransporter();
-
-    // Vérifier la connexion SMTP
-    console.log('🔍 Vérification de la connexion SMTP...');
-    await transporter.verify();
-    console.log('✅ Connexion SMTP établie avec succès');
-
     // URL de réinitialisation (frontend)
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
     console.log('🔗 URL de réinitialisation:', resetUrl);
 
-    // Options de l'email
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    const emailData = {
       to: user.email,
       subject: 'Réinitialisation de votre mot de passe - SmartPlant IoT',
       html: `
@@ -163,39 +163,16 @@ const sendPasswordResetEmail = async (user, resetToken) => {
       `
     };
 
-    // Envoi de l'email
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de réinitialisation envoyé avec succès');
-    console.log('   Message ID:', info.messageId);
+    const result = await sendEmail(emailData);
     console.log('   Destinataire:', user.email);
 
-    return {
-      success: true,
-      messageId: info.messageId
-    };
+    return result;
   } catch (error) {
-    console.error('❌ ERREUR lors de l\'envoi de l\'email:');
+    console.error('❌ ERREUR lors de l\'envoi de l\'email de réinitialisation:');
     console.error('   Type:', error.name);
     console.error('   Message:', error.message);
-    console.error('   Code:', error.code);
-    console.error('   Stack:', error.stack);
 
-    if (error.code === 'EAUTH') {
-      console.error('');
-      console.error('🔴 ERREUR D\'AUTHENTIFICATION:');
-      console.error('   Cause probable: Identifiants SMTP invalides');
-      console.error('   Solution: Vérifiez EMAIL_USER et EMAIL_PASS dans .env');
-      console.error('');
-    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
-      console.error('');
-      console.error('🔴 ERREUR DE CONNEXION:');
-      console.error('   Le serveur SMTP n\'est pas accessible');
-      console.error('   Vérifiez EMAIL_HOST et EMAIL_PORT dans .env');
-      console.error('');
-    }
-
-    // Retourner une erreur détaillée pour le debugging
-    throw new Error(`Impossible d'envoyer l'email: ${error.message} (${error.code || 'NO_CODE'})`);
+    throw new Error(`Impossible d'envoyer l'email: ${error.message}`);
   }
 };
 
@@ -206,21 +183,13 @@ const sendPasswordResetEmail = async (user, resetToken) => {
  */
 const sendEmailVerification = async (user, verificationToken) => {
   try {
-    console.log('Tentative d\'envoi d\'email de vérification à:', user.email);
-
-    const transporter = createTransporter();
-
-    // Vérifier la connexion SMTP
-    await transporter.verify();
-    console.log('✅ Connexion SMTP établie avec succès');
+    console.log('📧 Tentative d\'envoi d\'email de vérification à:', user.email);
 
     // URL de vérification (frontend)
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
     console.log('🔗 URL de vérification:', verificationUrl);
 
-    // Options de l'email
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    const emailData = {
       to: user.email,
       subject: 'Vérifiez votre adresse email - SmartPlant IoT',
       html: `
@@ -289,38 +258,38 @@ const sendEmailVerification = async (user, verificationToken) => {
       `
     };
 
-    // Envoi de l'email
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de vérification envoyé avec succès');
-    console.log('   Message ID:', info.messageId);
+    const result = await sendEmail(emailData);
     console.log('   Destinataire:', user.email);
 
-    return {
-      success: true,
-      messageId: info.messageId
-    };
+    return result;
   } catch (error) {
-    console.error('❌ ERREUR lors de l\'envoi de l\'email:');
+    console.error('❌ ERREUR lors de l\'envoi de l\'email de vérification:');
     console.error('   Type:', error.name);
     console.error('   Message:', error.message);
-    console.error('   Code:', error.code);
 
     throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
   }
 };
 
 /**
- * Fonction de test pour vérifier la configuration email
+ * Fonction de test pour vérifier la configuration de l'API Brevo
  */
 const testEmailConfiguration = async () => {
   try {
-    console.log('🧪 Test de la configuration email...');
-    const transporter = createTransporter();
-    await transporter.verify();
-    console.log('✅ Configuration email valide !');
+    console.log('🧪 Test de la configuration de l\'API Brevo...');
+
+    if (!process.env.BREVO_API_KEY) {
+      throw new Error('BREVO_API_KEY non configurée');
+    }
+
+    if (!apiInstance) {
+      throw new Error('API Brevo non initialisée');
+    }
+
+    console.log('✅ Configuration API Brevo valide !');
     return { success: true, message: 'Configuration valide' };
   } catch (error) {
-    console.error('❌ Configuration email invalide:', error.message);
+    console.error('❌ Configuration API Brevo invalide:', error.message);
     return { success: false, error: error.message };
   }
 };
