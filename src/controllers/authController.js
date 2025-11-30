@@ -33,7 +33,7 @@ exports.register = async (req, res) => {
 
       if (user.role === 'agriculteur') {
         await AdminNotification.create({
-          type: 'NEW_FARMER',
+          type: 'info',
           title: 'Nouvel agriculteur inscrit',
           message: `${user.nom} (${user.email}) vient de s'inscrire`,
           userId: user._id
