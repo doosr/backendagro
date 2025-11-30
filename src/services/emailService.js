@@ -1,17 +1,42 @@
-// Import nodemailer with proper error handling
+// Import nodemailer with comprehensive debugging and error handling
 let nodemailer;
+let createTransport;
+
 try {
+  // First, require the module
   nodemailer = require('nodemailer');
-  // Handle cases where nodemailer might be wrapped in a default export
-  if (nodemailer.default && typeof nodemailer.default.createTransporter === 'function') {
-    nodemailer = nodemailer.default;
+
+  // Debug: Log what we got
+  console.log('📦 Nodemailer loaded successfully');
+  console.log('   Type:', typeof nodemailer);
+  console.log('   Keys:', Object.keys(nodemailer).join(', '));
+  console.log('   Has createTransporter:', 'createTransporter' in nodemailer);
+  console.log('   Has createTransport:', 'createTransport' in nodemailer);
+  console.log('   Has default:', 'default' in nodemailer);
+
+  // Try different ways to get the createTransport function
+  // NOTE: The correct API is createTransport, not createTransporter!
+  if (typeof nodemailer.createTransport === 'function') {
+    createTransport = nodemailer.createTransport.bind(nodemailer);
+    console.log('✅ Using nodemailer.createTransport');
+  } else if (typeof nodemailer.createTransporter === 'function') {
+    createTransport = nodemailer.createTransporter.bind(nodemailer);
+    console.log('✅ Using nodemailer.createTransporter');
+  } else if (nodemailer.default && typeof nodemailer.default.createTransport === 'function') {
+    createTransport = nodemailer.default.createTransport.bind(nodemailer.default);
+    console.log('✅ Using nodemailer.default.createTransport');
+  } else if (nodemailer.default && typeof nodemailer.default.createTransporter === 'function') {
+    createTransport = nodemailer.default.createTransporter.bind(nodemailer.default);
+    console.log('✅ Using nodemailer.default.createTransporter');
+  } else {
+    throw new Error('Could not find createTransport or createTransporter function in nodemailer module');
   }
-  // Verify that createTransporter exists
-  if (typeof nodemailer.createTransporter !== 'function') {
-    throw new Error('nodemailer.createTransporter is not available');
-  }
+
+  console.log('✅ Nodemailer configured successfully');
 } catch (error) {
-  console.error('❌ ERREUR lors du chargement de nodemailer:', error.message);
+  console.error('❌ CRITICAL ERROR loading nodemailer:');
+  console.error('   Message:', error.message);
+  console.error('   Stack:', error.stack);
   throw error;
 }
 
@@ -29,7 +54,8 @@ const createTransporter = () => {
   console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
 
   // Configuration SMTP générique (supporte Gmail, Brevo, SendGrid, etc.)
-  return nodemailer.createTransporter({
+  // Use the createTransport function we resolved earlier
+  return createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: false, // false pour 587, true pour 465
