@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-// Configuration du transporteur email spécifiquement pour Gmail
+// Configuration du transporteur email générique (supporte Gmail, Brevo, SendGrid, etc.)
 const createTransporter = () => {
   // Vérifier que les variables d'environnement nécessaires sont définies
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -8,13 +8,15 @@ const createTransporter = () => {
   }
 
   console.log('📧 Configuration email:');
+  console.log('   Host:', process.env.EMAIL_HOST || 'smtp.gmail.com');
+  console.log('   Port:', process.env.EMAIL_PORT || 587);
   console.log('   User:', process.env.EMAIL_USER);
   console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
 
-  // Configuration explicite SMTP (plus fiable sur Render que service: 'gmail')
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
+  // Configuration SMTP générique (supporte Gmail, Brevo, SendGrid, etc.)
+  return nodemailer.createTransporter({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: false, // false pour 587, true pour 465
     auth: {
       user: process.env.EMAIL_USER,
@@ -139,18 +141,15 @@ const sendPasswordResetEmail = async (user, resetToken) => {
 
     if (error.code === 'EAUTH') {
       console.error('');
-      console.error('🔴 ERREUR D\'AUTHENTIFICATION Gmail:');
-      console.error('   Cause probable: App Password invalide ou non configuré');
-      console.error('   Solution:');
-      console.error('   1. Activez la validation en 2 étapes sur votre compte Gmail');
-      console.error('   2. Créez un App Password: https://myaccount.google.com/apppasswords');
-      console.error('   3. Remplacez EMAIL_PASS dans .env par ce nouveau mot de passe');
+      console.error('🔴 ERREUR D\'AUTHENTIFICATION:');
+      console.error('   Cause probable: Identifiants SMTP invalides');
+      console.error('   Solution: Vérifiez EMAIL_USER et EMAIL_PASS dans .env');
       console.error('');
     } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
       console.error('');
       console.error('🔴 ERREUR DE CONNEXION:');
-      console.error('   Vérifiez votre connexion internet');
-      console.error('   Vérifiez que smtp.gmail.com est accessible');
+      console.error('   Le serveur SMTP n\'est pas accessible');
+      console.error('   Vérifiez EMAIL_HOST et EMAIL_PORT dans .env');
       console.error('');
     }
 
