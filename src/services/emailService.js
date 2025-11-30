@@ -11,18 +11,19 @@ const createTransporter = () => {
   console.log('   User:', process.env.EMAIL_USER);
   console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
 
-  // Configuration optimisée pour Gmail avec App Password
+  // Configuration explicite SMTP (plus fiable sur Render que service: 'gmail')
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // false pour 587, true pour 465
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
-    // Options supplémentaires pour améliorer la fiabilité
-    pool: true,
-    maxConnections: 1,
-    rateDelta: 20000,
-    rateLimit: 5
+    // Options pour éviter les timeouts
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000
   });
 };
 
