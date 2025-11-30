@@ -79,8 +79,4 @@ exports.deleteNotification = async (req, res) => {
     }
 };
 
-module.exports = {
-    getNotifications,
-    markAsRead,
-    deleteNotification
-};
+
