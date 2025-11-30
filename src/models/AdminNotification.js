@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const adminNotificationSchema = new mongoose.Schema({
-    type: {
-        type: String,
-        enum: ['NEW_FARMER', 'ALERT', 'SYSTEM'],
-        required: true
-    },
     title: {
         type: String,
         required: true
@@ -14,18 +9,27 @@ const adminNotificationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+    type: {
+        type: String,
+        enum: ['alert', 'info', 'warning', 'success'],
+        default: 'info'
     },
     read: {
         type: Boolean,
         default: false
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed
     }
+}, {
+    timestamps: true
 });
+
+// Index pour recherche efficace
+adminNotificationSchema.index({ read: 1, createdAt: -1 });
 
 module.exports = mongoose.model('AdminNotification', adminNotificationSchema);

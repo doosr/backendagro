@@ -1,13 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const adminNotificationController = require('../controllers/adminNotificationController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize } = require('../middlewares/auth');
+const {
+    getNotifications,
+    markAsRead,
+    deleteNotification,
+    createNotification
+} = require('../controllers/adminNotificationController');
 
+// Toutes les routes nécessitent une authentification admin
 router.use(protect);
 router.use(authorize('admin'));
 
-router.get('/', adminNotificationController.getNotifications);
-router.patch('/:id/read', adminNotificationController.markAsRead);
-router.delete('/:id', adminNotificationController.deleteNotification);
+// Routes
+router.get('/', getNotifications);
+router.post('/', createNotification);
+router.patch('/:id/read', markAsRead);
+router.delete('/:id', deleteNotification);
 
 module.exports = router;

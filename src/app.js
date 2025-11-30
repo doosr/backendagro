@@ -51,6 +51,7 @@ app.use('/api/sensor', require('./routes/sensorRoutes'));
 app.use('/api/capteur', require('./routes/capteurRoutes'));
 app.use('/api/alert', require('./routes/alertRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
+app.use('/api/admin-notifications', require('./routes/adminNotificationRoutes'));
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/reminders', require('./routes/notificationReminderRoutes'));
 app.use('/api/irrigation', require('./routes/irrigationRoutes'));
