@@ -5,28 +5,52 @@ const createTransporter = () => {
   // Vérifier que les variables d'environnement nécessaires sont définies
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('Configuration email manquante. Vérifiez EMAIL_USER et EMAIL_PASS dans .env');
- * @param { String } resetToken - Le token de réinitialisation(non - hashé)
-      */
-    const sendPasswordResetEmail = async (user, resetToken) => {
-      try {
-        console.log('Tentative d\'envoi d\'email à:', user.email);
+  }
 
-        const transporter = createTransporter();
+  console.log('📧 Configuration email:');
+  console.log('   User:', process.env.EMAIL_USER);
+  console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
 
-        // Vérifier la connexion SMTP
-        await transporter.verify();
-        console.log('✅ Connexion SMTP établie avec succès');
+  // Configuration optimisée pour Gmail avec App Password
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    },
+    // Options supplémentaires pour améliorer la fiabilité
+    pool: true,
+    maxConnections: 1,
+    rateDelta: 20000,
+    rateLimit: 5
+  });
+};
 
-        // URL de réinitialisation (frontend)
-        const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-        console.log('🔗 URL de réinitialisation:', resetUrl);
+/**
+ * Envoie un email de réinitialisation de mot de passe
+ * @param {Object} user - L'utilisateur qui demande la réinitialisation
+ * @param {String} resetToken - Le token de réinitialisation (non-hashé)
+ */
+const sendPasswordResetEmail = async (user, resetToken) => {
+  try {
+    console.log('Tentative d\'envoi d\'email à:', user.email);
 
-        // Options de l'email
-        const mailOptions = {
-          from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-          to: user.email,
-          subject: 'Réinitialisation de votre mot de passe - SmartPlant IoT',
-          html: `
+    const transporter = createTransporter();
+
+    // Vérifier la connexion SMTP
+    await transporter.verify();
+    console.log('✅ Connexion SMTP établie avec succès');
+
+    // URL de réinitialisation (frontend)
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    console.log('🔗 URL de réinitialisation:', resetUrl);
+
+    // Options de l'email
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Réinitialisation de votre mot de passe - SmartPlant IoT',
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #22c55e;">🌱 SmartPlant IoT</h1>
@@ -74,7 +98,7 @@ const createTransporter = () => {
           </div>
         </div>
       `,
-          text: `
+      text: `
         Réinitialisation de mot de passe - SmartPlant IoT
         
         Bonjour ${user.nom},
@@ -90,70 +114,70 @@ const createTransporter = () => {
         
         © ${new Date().getFullYear()} SmartPlant IoT
       `
-        };
-
-        // Envoi de l'email
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email de réinitialisation envoyé avec succès');
-        console.log('   Message ID:', info.messageId);
-        console.log('   Destinataire:', user.email);
-
-        return {
-          success: true,
-          messageId: info.messageId
-        };
-      } catch (error) {
-        console.error('❌ ERREUR lors de l\'envoi de l\'email:');
-        console.error('   Type:', error.name);
-        console.error('   Message:', error.message);
-        console.error('   Code:', error.code);
-
-        if (error.code === 'EAUTH') {
-          console.error('');
-          console.error('🔴 ERREUR D\'AUTHENTIFICATION Gmail:');
-          console.error('   Cause probable: App Password invalide ou non configuré');
-          console.error('   Solution:');
-          console.error('   1. Activez la validation en 2 étapes sur votre compte Gmail');
-          console.error('   2. Créez un App Password: https://myaccount.google.com/apppasswords');
-          console.error('   3. Remplacez EMAIL_PASS dans .env par ce nouveau mot de passe');
-          console.error('');
-        } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
-          console.error('');
-          console.error('🔴 ERREUR DE CONNEXION:');
-          console.error('   Vérifiez votre connexion internet');
-          console.error('   Vérifiez que smtp.gmail.com est accessible');
-          console.error('');
-        }
-
-        throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
-      }
     };
 
-    /**
-     * Envoie un email de vérification d'email
-     * @param {Object} user - L'utilisateur qui s'est inscrit
-     * @param {String} verificationToken - Le token de vérification (non-hashé)
-     */
-    const sendEmailVerification = async (user, verificationToken) => {
-      try {
-        console.log('Tentative d\'envoi d\'email de vérification à:', user.email);
+    // Envoi de l'email
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de réinitialisation envoyé avec succès');
+    console.log('   Message ID:', info.messageId);
+    console.log('   Destinataire:', user.email);
 
-        const transporter = createTransporter();
+    return {
+      success: true,
+      messageId: info.messageId
+    };
+  } catch (error) {
+    console.error('❌ ERREUR lors de l\'envoi de l\'email:');
+    console.error('   Type:', error.name);
+    console.error('   Message:', error.message);
+    console.error('   Code:', error.code);
 
-        // Vérifier la connexion SMTP
-        await transporter.verify();
-        console.log('✅ Connexion SMTP établie avec succès');
+    if (error.code === 'EAUTH') {
+      console.error('');
+      console.error('🔴 ERREUR D\'AUTHENTIFICATION Gmail:');
+      console.error('   Cause probable: App Password invalide ou non configuré');
+      console.error('   Solution:');
+      console.error('   1. Activez la validation en 2 étapes sur votre compte Gmail');
+      console.error('   2. Créez un App Password: https://myaccount.google.com/apppasswords');
+      console.error('   3. Remplacez EMAIL_PASS dans .env par ce nouveau mot de passe');
+      console.error('');
+    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+      console.error('');
+      console.error('🔴 ERREUR DE CONNEXION:');
+      console.error('   Vérifiez votre connexion internet');
+      console.error('   Vérifiez que smtp.gmail.com est accessible');
+      console.error('');
+    }
 
-        // URL de vérification (frontend)
-        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-        console.log('🔗 URL de vérification:', verificationUrl);
+    throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
+  }
+};
 
-        // Options de l'email
-        const mailOptions = {
-          from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-          to: user.email,
-          subject: 'Vérifiez votre adresse email - SmartPlant IoT',
-          html: `
+/**
+ * Envoie un email de vérification d'email
+ * @param {Object} user - L'utilisateur qui s'est inscrit
+ * @param {String} verificationToken - Le token de vérification (non-hashé)
+ */
+const sendEmailVerification = async (user, verificationToken) => {
+  try {
+    console.log('Tentative d\'envoi d\'email de vérification à:', user.email);
+
+    const transporter = createTransporter();
+
+    // Vérifier la connexion SMTP
+    await transporter.verify();
+    console.log('✅ Connexion SMTP établie avec succès');
+
+    // URL de vérification (frontend)
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+    console.log('🔗 URL de vérification:', verificationUrl);
+
+    // Options de l'email
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Vérifiez votre adresse email - SmartPlant IoT',
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #22c55e;">🌱 SmartPlant IoT</h1>
@@ -201,7 +225,7 @@ const createTransporter = () => {
           </div>
         </div>
       `,
-          text: `
+      text: `
         Vérification d'email - SmartPlant IoT
         
         Bonjour ${user.nom},
@@ -217,46 +241,46 @@ const createTransporter = () => {
         
         © ${new Date().getFullYear()} SmartPlant IoT
       `
-        };
-
-        // Envoi de l'email
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email de vérification envoyé avec succès');
-        console.log('   Message ID:', info.messageId);
-        console.log('   Destinataire:', user.email);
-
-        return {
-          success: true,
-          messageId: info.messageId
-        };
-      } catch (error) {
-        console.error('❌ ERREUR lors de l\'envoi de l\'email:');
-        console.error('   Type:', error.name);
-        console.error('   Message:', error.message);
-        console.error('   Code:', error.code);
-
-        throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
-      }
     };
 
-    /**
-     * Fonction de test pour vérifier la configuration email
-     */
-    const testEmailConfiguration = async () => {
-      try {
-        console.log('🧪 Test de la configuration email...');
-        const transporter = createTransporter();
-        await transporter.verify();
-        console.log('✅ Configuration email valide !');
-        return { success: true, message: 'Configuration valide' };
-      } catch (error) {
-        console.error('❌ Configuration email invalide:', error.message);
-        return { success: false, error: error.message };
-      }
-    };
+    // Envoi de l'email
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de vérification envoyé avec succès');
+    console.log('   Message ID:', info.messageId);
+    console.log('   Destinataire:', user.email);
 
-    module.exports = {
-      sendPasswordResetEmail,
-      sendEmailVerification,
-      testEmailConfiguration
+    return {
+      success: true,
+      messageId: info.messageId
     };
+  } catch (error) {
+    console.error('❌ ERREUR lors de l\'envoi de l\'email:');
+    console.error('   Type:', error.name);
+    console.error('   Message:', error.message);
+    console.error('   Code:', error.code);
+
+    throw new Error('Impossible d\'envoyer l\'email: ' + error.message);
+  }
+};
+
+/**
+ * Fonction de test pour vérifier la configuration email
+ */
+const testEmailConfiguration = async () => {
+  try {
+    console.log('🧪 Test de la configuration email...');
+    const transporter = createTransporter();
+    await transporter.verify();
+    console.log('✅ Configuration email valide !');
+    return { success: true, message: 'Configuration valide' };
+  } catch (error) {
+    console.error('❌ Configuration email invalide:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+module.exports = {
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  testEmailConfiguration
+};
