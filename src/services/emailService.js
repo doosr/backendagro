@@ -1,5 +1,9 @@
 const nodemailer = require('nodemailer');
 
+// DEBUG: Check what nodemailer contains
+console.log('🔍 nodemailer type:', typeof nodemailer);
+console.log('🔍 createTransporter exists?', typeof nodemailer?.createTransporter);
+
 // Configuration du transporteur email générique (supporte Gmail, Brevo, SendGrid, etc.)
 const createTransporter = () => {
   // Vérifier que les variables d'environnement nécessaires sont définies
