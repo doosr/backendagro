@@ -1,32 +1,20 @@
-const nodemailer = require('nodemailer');
+console.log('   User:', process.env.EMAIL_USER);
+console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
 
-// Configuration du transporteur email générique (supporte Gmail, Brevo, SendGrid, etc.)
-const createTransporter = () => {
-  // Vérifier que les variables d'environnement nécessaires sont définies
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('Configuration email manquante. Vérifiez EMAIL_USER et EMAIL_PASS dans .env');
-  }
-
-  console.log('📧 Configuration email:');
-  console.log('   Host:', process.env.EMAIL_HOST || 'smtp.gmail.com');
-  console.log('   Port:', process.env.EMAIL_PORT || 587);
-  console.log('   User:', process.env.EMAIL_USER);
-  console.log('   Pass:', process.env.EMAIL_PASS ? '****' + process.env.EMAIL_PASS.slice(-4) : 'NON DÉFINI');
-
-  // Configuration SMTP générique (supporte Gmail, Brevo, SendGrid, etc.)
-  return nodemailer.createTransporter({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: false, // false pour 587, true pour 465
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    },
-    // Options pour éviter les timeouts
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
-  });
+// Configuration SMTP générique (supporte Gmail, Brevo, SendGrid, etc.)
+return nodemailer.createTransporter({
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.EMAIL_PORT) || 587,
+  secure: false, // false pour 587, true pour 465
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  },
+  // Options pour éviter les timeouts
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000
+});
 };
 
 /**
