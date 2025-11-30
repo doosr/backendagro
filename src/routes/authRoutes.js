@@ -1,27 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, forgotPassword, resetPassword } = require('../controllers/authController');
+const authController = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
-// Routes d'authentification
-router.post('/register', register);
-router.post('/login', login);
-router.get('/me', protect, getMe);
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+router.get('/me', protect, authController.getMe);
+router.post('/forgot-password', authController.forgotPassword);
+router.put('/reset-password/:resetToken', authController.resetPassword);
 
-// Routes de réinitialisation du mot de passe
-router.post('/forgot-password', forgotPassword);
-router.put('/reset-password/:resetToken', resetPassword);
-
-// Route debug (correcte)
-router.post('/debug', (req, res) => {
-  res.json({
-    mongoUriExists: !!process.env.MONGO_URI,
-    mongoUriPrefix: process.env.MONGO_URI?.substring(0, 20) + '...',
-    nodeEnv: process.env.NODE_ENV,
-    allEnvVars: Object.keys(process.env).filter(key =>
-      key.includes('MONGO') || key.includes('JWT')
-    )
-  });
-});
+// Nouvelles routes pour la vérification d'email
+router.get('/verify-email/:token', authController.verifyEmail);
+router.post('/resend-verification', authController.resendVerification);
 
 module.exports = router;

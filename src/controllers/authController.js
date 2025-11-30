@@ -1,7 +1,8 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendPasswordResetEmail } = require('../services/emailService');
+const { sendPasswordResetEmail, sendEmailVerification } = require('../services/emailService');
+const AdminNotification = require('../models/AdminNotification');
 
 // Générer JWT Token
 const generateToken = (id) => {
@@ -10,13 +11,11 @@ const generateToken = (id) => {
   });
 };
 
-//    POST /api/auth/register
-//     Inscription utilisateur
+// POST /api/auth/register - Inscription utilisateur
 exports.register = async (req, res) => {
   try {
     const { nom, email, password, role, telephone } = req.body;
 
-    // Vérifier si l'utilisateur existe
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({
@@ -25,7 +24,6 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Créer l'utilisateur
     const user = await User.create({
       nom,
       email,
@@ -34,19 +32,43 @@ exports.register = async (req, res) => {
       telephone
     });
 
-    const token = generateToken(user._id);
+    const verificationToken = user.getEmailVerificationToken();
+    await user.save({ validateBeforeSave: false });
 
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        nom: user.nom,
-        email: user.email,
-        role: user.role
+    try {
+      await sendEmailVerification(user, verificationToken);
+
+      if (user.role === 'agriculteur') {
+        await AdminNotification.create({
+          type: 'NEW_FARMER',
+          title: 'Nouvel agriculteur inscrit',
+          message: `${user.nom} (${user.email}) vient de s'inscrire`,
+          userId: user._id
+        });
       }
-    });
+
+      res.status(201).json({
+        success: true,
+        message: 'Un email de vérification a été envoyé à votre adresse email',
+        user: {
+          id: user._id,
+          nom: user.nom,
+          email: user.email,
+          role: user.role,
+          emailVerified: user.emailVerified
+        }
+      });
+    } catch (emailError) {
+      await User.findByIdAndDelete(user._id);
+      console.error('Erreur envoi email:', emailError);
+
+      return res.status(500).json({
+        success: false,
+        message: 'Une erreur est survenue lors de l\'envoi de l\'email de vérification'
+      });
+    }
   } catch (error) {
+    console.error('Erreur register:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -54,8 +76,110 @@ exports.register = async (req, res) => {
   }
 };
 
-//    POST /api/auth/login
-//     Connexion utilisateur
+// GET /api/auth/verify-email/:token
+exports.verifyEmail = async (req, res) => {
+  try {
+    const verificationToken = crypto
+      .createHash('sha256')
+      .update(req.params.token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      verificationToken,
+      verificationExpire: { $gt: Date.now() }
+    }).select('+verificationToken +verificationExpire');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token invalide ou expiré'
+      });
+    }
+
+    user.emailVerified = true;
+    user.verificationToken = undefined;
+    user.verificationExpire = undefined;
+    await user.save();
+
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: 'Email vérifié avec succès',
+      token,
+      user: {
+        id: user._id,
+        nom: user.nom,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified
+      }
+    });
+  } catch (error) {
+    console.error('Erreur verify email:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// POST /api/auth/resend-verification
+exports.resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Veuillez fournir un email'
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cet email est déjà vérifié'
+      });
+    }
+
+    const verificationToken = user.getEmailVerificationToken();
+    await user.save({ validateBeforeSave: false });
+
+    try {
+      await sendEmailVerification(user, verificationToken);
+
+      res.json({
+        success: true,
+        message: 'Email de vérification renvoyé avec succès'
+      });
+    } catch (emailError) {
+      console.error('Erreur envoi email:', emailError);
+
+      return res.status(500).json({
+        success: false,
+        message: 'Une erreur est survenue lors de l\'envoi de l\'email'
+      });
+    }
+  } catch (error) {
+    console.error('Erreur resend verification:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// POST /api/auth/login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -85,7 +209,8 @@ exports.login = async (req, res) => {
         id: user._id,
         nom: user.nom,
         email: user.email,
-        role: user.role
+        role: user.role,
+        emailVerified: user.emailVerified
       }
     });
   } catch (error) {
@@ -96,8 +221,7 @@ exports.login = async (req, res) => {
   }
 };
 
-//    GET /api/auth/me
-//     Obtenir utilisateur actuel
+// GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -114,8 +238,7 @@ exports.getMe = async (req, res) => {
   }
 };
 
-//    POST /api/auth/forgot-password
-//     Demander la réinitialisation du mot de passe
+// POST /api/auth/forgot-password
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -129,31 +252,24 @@ exports.forgotPassword = async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    // Pour des raisons de sécurité, on renvoie toujours un message de succès
-    // même si l'email n'existe pas (pour éviter l'énumération des utilisateurs)
     if (!user) {
       return res.json({
         success: true,
-        message: 'Si un compte existe avec cet email, vous recevrez les instructions de réinitialisation.'
+        message: 'Si un compte existe avec cet email, vous recevrez les instructions'
       });
     }
 
-    // Générer le token de réinitialisation
     const resetToken = user.getResetPasswordToken();
-
-    // Sauvegarder l'utilisateur avec le token
     await user.save({ validateBeforeSave: false });
 
     try {
-      // Envoyer l'email
       await sendPasswordResetEmail(user, resetToken);
 
       res.json({
         success: true,
-        message: 'Si un compte existe avec cet email, vous recevrez les instructions de réinitialisation.'
+        message: 'Si un compte existe avec cet email, vous recevrez les instructions'
       });
     } catch (emailError) {
-      // En cas d'erreur d'envoi d'email, réinitialiser les champs
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
@@ -162,7 +278,7 @@ exports.forgotPassword = async (req, res) => {
 
       return res.status(500).json({
         success: false,
-        message: 'Une erreur est survenue lors de l\'envoi de l\'email. Veuillez réessayer.'
+        message: 'Une erreur est survenue lors de l\'envoi de l\'email'
       });
     }
   } catch (error) {
@@ -174,8 +290,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-//    PUT /api/auth/reset-password/:resetToken
-//     Réinitialiser le mot de passe avec le token
+// PUT /api/auth/reset-password/:resetToken
 exports.resetPassword = async (req, res) => {
   try {
     const { password } = req.body;
@@ -194,13 +309,11 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Hasher le token reçu pour le comparer avec celui en base
     const resetPasswordToken = crypto
       .createHash('sha256')
       .update(req.params.resetToken)
       .digest('hex');
 
-    // Trouver l'utilisateur avec le token et vérifier qu'il n'a pas expiré
     const user = await User.findOne({
       resetPasswordToken,
       resetPasswordExpire: { $gt: Date.now() }
@@ -213,13 +326,11 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Définir le nouveau mot de passe
     user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    // Générer un nouveau token JWT pour connecter automatiquement l'utilisateur
     const token = generateToken(user._id);
 
     res.json({

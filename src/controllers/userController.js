@@ -1,106 +1,80 @@
-const User = require('../models/User');
-const SensorData = require('../models/SensorData');
-const IrrigationHistory = require('../models/IrrigationHistory');
+try {
+  const { action } = req.body; // 'ON' ou 'OFF'
 
-// @route   GET /api/user
-// @desc    Liste des utilisateurs (Admin uniquement)
-exports.getUsers = async (req, res) => {
-  try {
-    const users = await User.find().select('-password');
-
-    res.json({
-      success: true,
-      count: users.length,
-      data: users
-    });
-  } catch (error) {
-    res.status(500).json({
+  if (!["ON", "OFF"].includes(action)) {
+    return res.status(400).json({
       success: false,
-      message: error.message
+      message: "Action invalide. Utilisez 'ON' ou 'OFF'"
     });
   }
-};
 
-// @route   POST /api/user/irrigation
-// @desc    Contrôler l'arrosage manuel
-exports.controlIrrigation = async (req, res) => {
-  try {
-    const { action } = req.body; // 'ON' ou 'OFF'
+  console.log(`💧 Commande d'irrigation: ${action} pour utilisateur ${req.user._id}`);
 
-    if (!["ON", "OFF"].includes(action)) {
-      return res.status(400).json({
-        success: false,
-        message: "Action invalide. Utilisez 'ON' ou 'OFF'"
-      });
-    }
+  // Enregistrer l'historique
+  await IrrigationHistory.create({
+    userId: req.user._id,
+    action,
+    source: 'MANUAL',
+    timestamp: new Date()
+  });
 
-    console.log(`💧 Commande d'irrigation: ${action} pour utilisateur ${req.user._id}`);
-
-    // Enregistrer l'historique
-    await IrrigationHistory.create({
-      userId: req.user._id,
+  // Envoyer la commande à l'ESP32
+  const io = req.app.get('io');
+  if (io) {
+    const commandData = {
       action,
-      source: 'MANUAL',
+      userId: req.user._id.toString(),
       timestamp: new Date()
+    };
+
+    // Émettre la commande à la room ESP32 (format Socket.IO standard)
+    io.to('esp32').emit('irrigationCommand', commandData);
+
+    // Pour ESP32 avec client WebSocket brut, envoyer aussi en format texte JSON simple
+    const esp32Sockets = await io.in('esp32').fetchSockets();
+    esp32Sockets.forEach(socket => {
+      // Envoyer un message texte simple que l'ESP32 peut parser
+      socket.send(JSON.stringify(commandData));
     });
 
-    // Envoyer la commande à l'ESP32
-    const io = req.app.get('io');
-    if (io) {
-      const commandData = {
-        action,
-        userId: req.user._id.toString(),
-        timestamp: new Date()
-      };
+    console.log(`📤 Commande envoyée à l'ESP32: ${action}`);
 
-      // Émettre la commande à la room ESP32 (format Socket.IO standard)
-      io.to('esp32').emit('irrigationCommand', commandData);
+    // 🔄 Mise à jour optimiste de l'interface utilisateur
+    const latestData = await SensorData.findOne({ userId: req.user._id })
+      .sort({ timestamp: -1 });
 
-      // Pour ESP32 avec client WebSocket brut, envoyer aussi en format texte JSON simple
-      const esp32Sockets = await io.in('esp32').fetchSockets();
-      esp32Sockets.forEach(socket => {
-        // Envoyer un message texte simple que l'ESP32 peut parser
-        socket.send(JSON.stringify(commandData));
-      });
+    if (latestData) {
+      // Créer un objet simulé avec le nouvel état de la pompe
+      const updatedData = latestData.toObject();
+      updatedData.etatPompe = action === 'ON' ? 1 : 0;
+      updatedData.timestamp = new Date();
+      updatedData.manualMode = true; // Indiquer que c'est un mode manuel
 
-      console.log(`📤 Commande envoyée à l'ESP32: ${action}`);
-
-      // 🔄 Mise à jour optimiste de l'interface utilisateur
-      const latestData = await SensorData.findOne({ userId: req.user._id })
-        .sort({ timestamp: -1 });
-
-      if (latestData) {
-        // Créer un objet simulé avec le nouvel état de la pompe
-        const updatedData = latestData.toObject();
-        updatedData.etatPompe = action === 'ON' ? 1 : 0;
-        updatedData.timestamp = new Date();
-        updatedData.manualMode = true; // Indiquer que c'est un mode manuel
-
-        // Émettre vers le frontend pour mise à jour immédiate
-        io.to(req.user._id.toString()).emit('newSensorData', updatedData);
-        console.log(`📡 Mise à jour optimiste envoyée au frontend`);
-      }
-    } else {
-      console.warn('⚠️ Socket.IO non disponible');
-      return res.status(503).json({
-        success: false,
-        message: 'Service de communication temps réel non disponible'
-      });
+      // Émettre vers le frontend pour mise à jour immédiate
+      io.to(req.user._id.toString()).emit('newSensorData', updatedData);
+      console.log(`📡 Mise à jour optimiste envoyée au frontend`);
     }
-
-    res.json({
-      success: true,
-      message: `Commande d'arrosage ${action} envoyée avec succès`,
-      action,
-      timestamp: new Date()
-    });
-  } catch (error) {
-    console.error('❌ Erreur controlIrrigation:', error);
-    res.status(500).json({
+  } else {
+    console.warn('⚠️ Socket.IO non disponible');
+    return res.status(503).json({
       success: false,
-      message: error.message
+      message: 'Service de communication temps réel non disponible'
     });
   }
+
+  res.json({
+    success: true,
+    message: `Commande d'arrosage ${action} envoyée avec succès`,
+    action,
+    timestamp: new Date()
+  });
+} catch (error) {
+  console.error('❌ Erreur controlIrrigation:', error);
+  res.status(500).json({
+    success: false,
+    message: error.message
+  });
+}
 };
 
 //    DELETE /api/user/:id
