@@ -4,6 +4,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "prestart": "npm install",
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
