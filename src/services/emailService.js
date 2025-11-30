@@ -1,8 +1,19 @@
-const nodemailer = require('nodemailer');
-
-// DEBUG: Check what nodemailer contains
-console.log('🔍 nodemailer type:', typeof nodemailer);
-console.log('🔍 createTransporter exists?', typeof nodemailer?.createTransporter);
+// Import nodemailer with proper error handling
+let nodemailer;
+try {
+  nodemailer = require('nodemailer');
+  // Handle cases where nodemailer might be wrapped in a default export
+  if (nodemailer.default && typeof nodemailer.default.createTransporter === 'function') {
+    nodemailer = nodemailer.default;
+  }
+  // Verify that createTransporter exists
+  if (typeof nodemailer.createTransporter !== 'function') {
+    throw new Error('nodemailer.createTransporter is not available');
+  }
+} catch (error) {
+  console.error('❌ ERREUR lors du chargement de nodemailer:', error.message);
+  throw error;
+}
 
 // Configuration du transporteur email générique (supporte Gmail, Brevo, SendGrid, etc.)
 const createTransporter = () => {
