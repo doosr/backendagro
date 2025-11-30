@@ -6,12 +6,16 @@ const {
   getSettings,
   controlIrrigation,
   deleteUser,
-  updateProfile
+  updateProfile,
+  createUser,
+  toggleEmailVerification
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
 
 //  Routes utilisateur
 router.get('/', protect, authorize('admin'), getUsers);
+router.post('/create', protect, authorize('admin'), createUser);
+router.patch('/:id/verify-email', protect, authorize('admin'), toggleEmailVerification);
 
 //  Mise à jour du profil (nom, téléphone, etc.)
 router.put('/profile', protect, updateProfile);
