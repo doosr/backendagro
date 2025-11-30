@@ -22,5 +22,6 @@ try {
     const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
     console.log('TransactionalEmailsApi instantiated successfully');
 } catch (error) {
-    console.error('Error during manual init:', error);
+    console.log('ERROR MESSAGE:', error.message);
+    console.log('ERROR STACK:', error.stack.split('\n')[0]);
 }
