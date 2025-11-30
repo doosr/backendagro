@@ -48,18 +48,10 @@ async function testBrevoAPI() {
         console.log('   Vérifiez votre boîte email:', testUser.email);
 
     } catch (error) {
-        console.error('');
-        console.error('❌ Erreur lors du test:');
-        console.error('   Message:', error.message);
-
-        if (error.message.includes('unauthorized') || error.message.includes('Invalid API key')) {
-            console.error('');
-            console.error('🔴 La clé API Brevo est invalide');
-            console.error('   Vérifiez votre clé sur: https://app.brevo.com/settings/keys/api');
+        console.log('ERROR MESSAGE:', error.message);
+        if (error.response && error.response.body) {
+            console.log('ERROR BODY:', JSON.stringify(error.response.body));
         }
-
-        console.error('');
-        console.error('   Stack:', error.stack);
         process.exit(1);
     }
 }

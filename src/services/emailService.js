@@ -2,12 +2,10 @@ const SibApiV3Sdk = require('@sendinblue/client');
 
 // Configuration de l'API Brevo (Sendinblue)
 let apiInstance;
-let apiKey;
 
 try {
-  // Initialiser le client API
-  const defaultClient = SibApiV3Sdk.ApiClient.instance;
-  apiKey = defaultClient.authentications['api-key'];
+  // Initialiser l'instance de l'API
+  apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
   // Vérifier que la clé API est configurée
   if (!process.env.BREVO_API_KEY) {
@@ -15,15 +13,17 @@ try {
     console.warn('   L\'envoi d\'emails ne fonctionnera pas');
     console.warn('   Obtenez une clé API sur: https://app.brevo.com/settings/keys/api');
   } else {
-    apiKey.apiKey = process.env.BREVO_API_KEY;
-    apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    console.log('✅ API Brevo configurée avec succès');
+    // Configurer la clé API
+    if (apiInstance.authentications && apiInstance.authentications['apiKey']) {
+      apiInstance.authentications['apiKey'].apiKey = process.env.BREVO_API_KEY;
+      console.log('✅ API Brevo configurée avec succès');
+    } else {
+      console.warn('⚠️ Impossible de configurer l\'authentification Brevo: structure inattendue');
+    }
   }
 } catch (error) {
   console.error('❌ ERREUR lors de la configuration de l\'API Brevo:', error.message);
   console.error('   Stack:', error.stack);
-  // Ne pas lever d'exception pour permettre au module de se charger
-  // L'erreur sera levée lors de l'utilisation des fonctions
 }
 
 /**
@@ -38,8 +38,17 @@ const sendEmail = async (emailData) => {
   try {
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
 
+    // Nettoyer l'adresse email (enlever le nom si présent: "Nom <email>")
+    let senderEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    if (senderEmail && senderEmail.includes('<')) {
+      const match = senderEmail.match(/<([^>]+)>/);
+      if (match) {
+        senderEmail = match[1];
+      }
+    }
+
     sendSmtpEmail.sender = {
-      email: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      email: senderEmail,
       name: 'SmartPlant IoT'
     };
     sendSmtpEmail.to = [{ email: emailData.to }];
@@ -63,19 +72,15 @@ const sendEmail = async (emailData) => {
     };
   } catch (error) {
     console.error('❌ ERREUR lors de l\'envoi via API Brevo:');
-    console.error('   Message:', error.message);
-    console.error('   Body:', error.response?.body);
+    console.error('   Error Object:', JSON.stringify(error, null, 2));
 
-    if (error.response?.body?.code === 'unauthorized') {
-      console.error('');
-      console.error('🔴 ERREUR D\'AUTHENTIFICATION:');
-      console.error('   La clé API Brevo est invalide');
-      console.error('   Vérifiez BREVO_API_KEY dans .env');
-      console.error('   Obtenez une nouvelle clé sur: https://app.brevo.com/settings/keys/api');
-      console.error('');
+    if (error.response) {
+      console.error('   Response Status:', error.response.status);
+      console.error('   Response Body:', JSON.stringify(error.response.body, null, 2));
     }
 
-    throw new Error(`Impossible d'envoyer l'email: ${error.message}`);
+    const errorMessage = error.message || (error.response && error.response.body && error.response.body.message) || 'Erreur inconnue';
+    throw new Error(`Impossible d'envoyer l'email: ${errorMessage}`);
   }
 };
 
@@ -298,4 +303,4 @@ module.exports = {
   sendPasswordResetEmail,
   sendEmailVerification,
   testEmailConfiguration
-};
+}; 
