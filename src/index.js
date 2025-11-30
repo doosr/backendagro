@@ -99,6 +99,9 @@ io.on('connection', (socket) => {
 // ----------------------
 app.set('io', io);
 
+// Routes
+app.use('/api/admin-notifications', require('./routes/adminNotificationRoutes'));
+
 // ----------------------
 // LANCER LE SERVEUR
 // ----------------------
