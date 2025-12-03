@@ -131,17 +131,27 @@ exports.controlIrrigation = async (req, res) => {
         timestamp: new Date()
       };
 
+      // DEBUG: Vérifier combien d'ESP32 sont connectés
+      const esp32Sockets = await io.in('esp32').fetchSockets();
+      console.log(`🔍 ${esp32Sockets.length} ESP32 connecté(s) dans la room 'esp32'`);
+
+      if (esp32Sockets.length === 0) {
+        console.warn('⚠️ ATTENTION: Aucun ESP32 trouvé dans la room "esp32"!');
+        console.warn('   L\'ESP32 doit rejoindre la room via socket.join("esp32")');
+      }
+
       // Émettre la commande à la room ESP32 (format Socket.IO standard)
       io.to('esp32').emit('irrigationCommand', commandData);
+      console.log(`📤 Emit event 'irrigationCommand' vers room 'esp32'`);
 
       // Pour ESP32 avec client WebSocket brut, envoyer aussi en format texte JSON simple
-      const esp32Sockets = await io.in('esp32').fetchSockets();
       esp32Sockets.forEach(socket => {
-        // Envoyer un message texte simple que l'ESP32 peut parser
-        socket.send(JSON.stringify(commandData));
+        const jsonMessage = JSON.stringify(commandData);
+        socket.send(jsonMessage);
+        console.log(`📤 Send raw JSON to socket ${socket.id}: ${jsonMessage}`);
       });
 
-      console.log(`📤 Commande envoyée à l'ESP32: ${action}`);
+      console.log(`✅ Commande ${action} envoyée`);
 
       // 🔄 Mise à jour optimiste de l'interface utilisateur
       const latestData = await SensorData.findOne({ userId: req.user._id })
